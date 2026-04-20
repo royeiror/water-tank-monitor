@@ -1,0 +1,87 @@
+title: Tinaco
+views:
+  - title: Monitor de Agua
+    path: tinaco
+    icon: mdi:water-pump
+    badges: []
+    cards:
+
+      # ── Row 1: Gauge + current readings ──────────────────────────────────
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.tinaco_monitor_porcentaje_de_llenado
+            name: Nivel del Tinaco
+            unit: "%"
+            min: 0
+            max: 100
+            needle: true
+            severity:
+              green: 30
+              yellow: 20
+              red: 0
+
+          - type: entities
+            title: Estado Actual
+            show_header_toggle: false
+            entities:
+              - entity: sensor.tinaco_monitor_volumen_de_agua
+                name: Volumen
+                icon: mdi:water
+              - entity: sensor.tinaco_monitor_porcentaje_de_llenado
+                name: Porcentaje
+                icon: mdi:water-percent
+              - entity: sensor.tinaco_distancia_al_agua
+                name: Distancia raw
+                icon: mdi:ruler
+              - entity: sensor.tinaco_monitor_tasa_de_llenado
+                name: Tasa de llenado
+                icon: mdi:waves-arrow-up
+              - type: divider
+              - entity: binary_sensor.tinaco_monitor_nivel_bajo
+                name: Nivel Bajo
+                icon: mdi:water-alert
+              - entity: binary_sensor.tinaco_monitor_nivel_critico
+                name: Nivel Crítico
+                icon: mdi:water-off
+              - entity: binary_sensor.tinaco_monitor_tinaco_lleno
+                name: Tinaco Lleno
+                icon: mdi:water-check
+
+      # ── Row 2: 24h history ───────────────────────────────────────────────
+      - type: history-graph
+        title: Últimas 24 Horas
+        hours_to_show: 24
+        logarithmic_scale: false
+        entities:
+          - entity: sensor.tinaco_monitor_porcentaje_de_llenado
+            name: Porcentaje (%)
+          - entity: sensor.tinaco_monitor_volumen_de_agua
+            name: Volumen (L)
+
+      # ── Row 3: 7-day history ─────────────────────────────────────────────
+      - type: history-graph
+        title: Últimos 7 Días
+        hours_to_show: 168
+        logarithmic_scale: false
+        entities:
+          - entity: sensor.tinaco_monitor_porcentaje_de_llenado
+            name: Porcentaje (%)
+          - entity: sensor.tinaco_monitor_volumen_de_agua
+            name: Volumen (L)
+
+      # ── Row 4: Daily statistics ──────────────────────────────────────────
+      - type: statistics-graph
+        title: Estadísticas de Hoy
+        entities:
+          - entity: sensor.tinaco_monitor_porcentaje_de_llenado
+            name: Porcentaje
+          - entity: sensor.tinaco_monitor_volumen_de_agua
+            name: Volumen
+        stat_types:
+          - min
+          - max
+          - mean
+        period:
+          calendar:
+            period: day

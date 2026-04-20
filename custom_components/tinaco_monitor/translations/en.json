@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set Up Tinaco Monitor",
+        "description": "Enter your water tank parameters.",
+        "data": {
+          "distance_sensor": "Distance Sensor",
+          "min_distance": "Minimum distance — full tank (m)",
+          "max_distance": "Maximum distance — empty tank (m)",
+          "tank_capacity": "Total tank capacity (L)",
+          "low_threshold": "Low water threshold (%)",
+          "critical_threshold": "Critical water threshold (%)"
+        }
+      }
+    },
+    "error": {
+      "invalid_distances": "Minimum distance must be less than maximum distance.",
+      "invalid_thresholds": "Critical threshold must be less than low threshold."
+    },
+    "abort": {
+      "already_configured": "This sensor is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tinaco Monitor Options",
+        "data": {
+          "distance_sensor": "Distance Sensor",
+          "min_distance": "Minimum distance — full tank (m)",
+          "max_distance": "Maximum distance — empty tank (m)",
+          "tank_capacity": "Total tank capacity (L)",
+          "low_threshold": "Low water threshold (%)",
+          "critical_threshold": "Critical water threshold (%)"
+        }
+      }
+    },
+    "error": {
+      "invalid_distances": "Minimum distance must be less than maximum distance.",
+      "invalid_thresholds": "Critical threshold must be less than low threshold."
+    }
+  }
+}

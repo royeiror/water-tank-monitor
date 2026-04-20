@@ -1,0 +1,184 @@
+blueprint:
+  name: "Tinaco Monitor — Alertas de Nivel"
+  description: >
+    Envía notificaciones push (app de Home Assistant) y notificaciones
+    persistentes en la barra lateral cuando el nivel del tinaco sube o baja
+    de los umbrales configurados, o cuando se llena.
+  domain: automation
+  source_url: https://github.com/royeiror/tinaco-monitor/blob/main/blueprints/automation/tinaco_monitor/tank_alerts.yaml
+
+  input:
+    notify_device:
+      name: Dispositivo Móvil
+      description: >
+        Dispositivo con la aplicación de Home Assistant instalada.
+        Recibirá las notificaciones push.
+      selector:
+        device:
+          integration: mobile_app
+
+    sensor_nivel_bajo:
+      name: Sensor — Nivel Bajo
+      description: "Selecciona binary_sensor.tinaco_monitor_nivel_bajo"
+      selector:
+        entity:
+          domain: binary_sensor
+
+    sensor_nivel_critico:
+      name: Sensor — Nivel Crítico
+      description: "Selecciona binary_sensor.tinaco_monitor_nivel_critico"
+      selector:
+        entity:
+          domain: binary_sensor
+
+    sensor_lleno:
+      name: Sensor — Tinaco Lleno
+      description: "Selecciona binary_sensor.tinaco_monitor_lleno"
+      selector:
+        entity:
+          domain: binary_sensor
+
+    sensor_volumen:
+      name: Sensor — Volumen de Agua
+      description: "Selecciona sensor.tinaco_monitor_volumen_de_agua"
+      selector:
+        entity:
+          domain: sensor
+
+    sensor_porcentaje:
+      name: Sensor — Porcentaje de Llenado
+      description: "Selecciona sensor.tinaco_monitor_porcentaje_de_llenado"
+      selector:
+        entity:
+          domain: sensor
+
+    delay_minutes:
+      name: Retardo antes de notificar (minutos)
+      description: >
+        Espera este tiempo antes de enviar la alerta para ignorar lecturas
+        transitorias del sensor. Recomendado: 2 minutos.
+      default: 2
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 1
+          unit_of_measurement: min
+          mode: slider
+
+# ── Variables ──────────────────────────────────────────────────────────────
+variables:
+  notify_device: !input notify_device
+  sensor_volumen: !input sensor_volumen
+  sensor_porcentaje: !input sensor_porcentaje
+  notify_service: >-
+    {{ 'notify.mobile_app_' ~ (
+         device_attr(notify_device, 'name')
+         | lower
+         | regex_replace('[^a-z0-9]+', '_')
+         | regex_replace('^_+|_+$', '')
+       ) }}
+
+# ── Triggers ───────────────────────────────────────────────────────────────
+trigger:
+  - platform: state
+    entity_id: !input sensor_nivel_critico
+    to: "on"
+    for:
+      minutes: !input delay_minutes
+    id: critico
+
+  - platform: state
+    entity_id: !input sensor_nivel_bajo
+    to: "on"
+    for:
+      minutes: !input delay_minutes
+    id: bajo
+
+  - platform: state
+    entity_id: !input sensor_lleno
+    to: "on"
+    for:
+      minutes: !input delay_minutes
+    id: lleno
+
+# ── Actions ────────────────────────────────────────────────────────────────
+action:
+  - variables:
+      volume: "{{ states(sensor_volumen) | float(0) | round(0) | int }}"
+      pct: "{{ states(sensor_porcentaje) | float(0) | round(0) | int }}"
+
+  - choose:
+
+      # ── Nivel Crítico ────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: critico
+        sequence:
+          - action: "{{ notify_service }}"
+            data:
+              title: "🔴 ¡Tinaco Casi Vacío!"
+              message: >-
+                ¡El tinaco está casi vacío! Solo quedan {{ volume }} L ({{ pct }}%).
+                Por favor llénalo lo antes posible.
+              data:
+                push:
+                  sound: default
+          - action: persistent_notification.create
+            data:
+              title: "🔴 Tinaco — Nivel Crítico"
+              message: >-
+                ¡El tinaco está casi vacío! Solo quedan {{ volume }} L ({{ pct }}%).
+              notification_id: tinaco_nivel_critico
+          # Dismiss the lower-priority "bajo" notification if it was shown
+          - action: persistent_notification.dismiss
+            data:
+              notification_id: tinaco_nivel_bajo
+
+      # ── Nivel Bajo ───────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: bajo
+          # Only alert for "bajo" if it hasn't crossed into "crítico" yet
+          - condition: state
+            entity_id: !input sensor_nivel_critico
+            state: "off"
+        sequence:
+          - action: "{{ notify_service }}"
+            data:
+              title: "🟡 Tinaco — Nivel Bajo"
+              message: >-
+                El tinaco está al {{ pct }}%. Solo quedan {{ volume }} L.
+                Considera llenarlo pronto.
+          - action: persistent_notification.create
+            data:
+              title: "🟡 Tinaco — Nivel Bajo"
+              message: >-
+                El tinaco está al {{ pct }}%. Solo quedan {{ volume }} L.
+              notification_id: tinaco_nivel_bajo
+
+      # ── Lleno ────────────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: lleno
+        sequence:
+          - action: "{{ notify_service }}"
+            data:
+              title: "🟢 ¡Tinaco Lleno!"
+              message: >-
+                El tinaco está lleno — {{ volume }} L ({{ pct }}%).
+                ¡No olvides cerrar la llave!
+          # Dismiss any previous alerts
+          - action: persistent_notification.dismiss
+            data:
+              notification_id: tinaco_nivel_bajo
+          - action: persistent_notification.dismiss
+            data:
+              notification_id: tinaco_nivel_critico
+          - action: persistent_notification.create
+            data:
+              title: "🟢 Tinaco Lleno"
+              message: "El tinaco está lleno — {{ volume }} L."
+              notification_id: tinaco_lleno
+
+mode: single

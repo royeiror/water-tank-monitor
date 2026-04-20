@@ -1,0 +1,10 @@
+{
+  "domain": "tinaco_monitor",
+  "name": "Tinaco Monitor",
+  "version": "1.0.0",
+  "config_flow": true,
+  "documentation": "https://github.com/royeiror/tinaco-monitor",
+  "requirements": [],
+  "iot_class": "local_push",
+  "codeowners": ["@royeiror"]
+}

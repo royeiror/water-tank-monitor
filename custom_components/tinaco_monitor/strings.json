@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurar Tinaco Monitor",
+        "description": "Ingresa los parámetros de tu tanque de agua.",
+        "data": {
+          "distance_sensor": "Sensor de Distancia",
+          "min_distance": "Distancia mínima — tanque lleno (m)",
+          "max_distance": "Distancia máxima — tanque vacío (m)",
+          "tank_capacity": "Capacidad total del tanque (L)",
+          "low_threshold": "Umbral de nivel bajo (%)",
+          "critical_threshold": "Umbral de nivel crítico (%)"
+        }
+      }
+    },
+    "error": {
+      "invalid_distances": "La distancia mínima debe ser menor que la distancia máxima.",
+      "invalid_thresholds": "El umbral crítico debe ser menor que el umbral de nivel bajo."
+    },
+    "abort": {
+      "already_configured": "Este sensor ya está configurado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de Tinaco Monitor",
+        "data": {
+          "distance_sensor": "Sensor de Distancia",
+          "min_distance": "Distancia mínima — tanque lleno (m)",
+          "max_distance": "Distancia máxima — tanque vacío (m)",
+          "tank_capacity": "Capacidad total del tanque (L)",
+          "low_threshold": "Umbral de nivel bajo (%)",
+          "critical_threshold": "Umbral de nivel crítico (%)"
+        }
+      }
+    },
+    "error": {
+      "invalid_distances": "La distancia mínima debe ser menor que la distancia máxima.",
+      "invalid_thresholds": "El umbral crítico debe ser menor que el umbral de nivel bajo."
+    }
+  }
+}

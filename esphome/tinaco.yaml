@@ -1,0 +1,53 @@
+esphome:
+  name: tinaco
+  friendly_name: Tinaco
+
+esp8266:
+  board: nodemcuv2
+
+logger:
+  level: WARN  # Reduced from VERBOSE — saves RAM at runtime
+
+api:
+  encryption:
+    key: "fuvilrQcf0R7XOLxsdVw4a6oDf+w+Hz3wqAviQLrVy4="
+
+ota:
+  - platform: esphome
+    password: "8dcd0c6471267956deafa65234c629c5"
+
+wifi:
+  min_auth_mode: WPA2
+  networks:
+    - ssid: !secret royeiror_ssid
+      password: !secret royeiror_pw
+    - ssid: !secret lajoya_ssid
+      password: !secret lajoya_pw
+  ap:
+    ssid: "Tinaco Fallback Hotspot"
+    password: "1234567890"
+
+captive_portal:
+
+# ─── Ultrasonic sensor — reports raw distance to Home Assistant ────────────
+# All derived values (fill %, volume, fill rate, alerts) are computed
+# in HA by the Tinaco Monitor integration.
+# ──────────────────────────────────────────────────────────────────────────
+sensor:
+  - platform: ultrasonic
+    trigger_pin: D7
+    echo_pin: D6
+    name: "Distancia al Agua"
+    id: tank_distance
+    update_interval: 10s
+    unit_of_measurement: "m"
+    accuracy_decimals: 3
+    filters:
+      # Clamp to physical limits of the tank (full → empty)
+      - clamp:
+          min_value: 0.10
+          max_value: 1.20
+      # Smooth out noisy readings with a sliding window median
+      - median:
+          window_size: 5
+          send_every: 1
