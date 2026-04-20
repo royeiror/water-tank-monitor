@@ -155,18 +155,37 @@ class WaterTankAnalytics:
             _LOGGER.info("Supply event ended: %s L", round(amount, 1))
 
     def _check_leak(self, now: datetime, fill_rate: float) -> None:
-        """Detect sustained small drops."""
-        # A leak is a sustained negative fill_rate between leak_threshold and usage_threshold
-        if -USAGE_THRESHOLD_RATE < fill_rate < -self.leak_rate_threshold:
+        """Detect sustained small drops, ignoring high-flow usage interruptions."""
+        
+        # 1. Leak Zone: Constant small drop
+        is_in_leak_zone = -USAGE_THRESHOLD_RATE < fill_rate < -self.leak_rate_threshold
+        
+        # 2. Usage Zone: High-flow consumption
+        is_usage = fill_rate <= -USAGE_THRESHOLD_RATE
+        
+        # 3. Stable/Filling Zone: No significant drop or active supply
+        is_stable_or_filling = fill_rate >= -self.leak_rate_threshold or self.is_filling
+
+        if is_in_leak_zone:
+            # Start or continue the timer
             if self.leak_start_time is None:
                 self.leak_start_time = now
-            else:
-                elapsed = (now - self.leak_start_time).total_seconds() / 60.0
-                if elapsed >= self.leak_duration_min:
-                    if not self.is_leaking:
-                        self.is_leaking = True
-                        _LOGGER.warning("Potential leak detected! Sustained drop of %s L/h", round(abs(fill_rate), 1))
-        else:
+            
+            elapsed = (now - self.leak_start_time).total_seconds() / 60.0
+            if elapsed >= self.leak_duration_min:
+                if not self.is_leaking:
+                    self.is_leaking = True
+                    _LOGGER.warning("Potential leak detected! Sustained drop of %s L/h", round(abs(fill_rate), 1))
+        
+        elif is_usage:
+            # Suspension logic: 
+            # If we were already timing a leak, we keep the leak_start_time as is.
+            # We don't advance the detection but we don't punish the timer for a flush.
+            # We effectively "pause" by just doing nothing.
+            pass
+            
+        elif is_stable_or_filling:
+            # Genuine reset condition: tank stopped dropping or is being filled
             self.leak_start_time = None
             self.is_leaking = False
 
