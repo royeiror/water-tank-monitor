@@ -33,3 +33,23 @@ ATTR_VOLUME = "volume"
 
 # Signal names
 SIGNAL_RESET_BOUNDS = "water_tank_monitor_reset_bounds"
+SIGNAL_CALIBRATION_UPDATE = "water_tank_monitor_calibration_update"
+
+# Analytics Defaults
+DEFAULT_DETECTION_THRESHOLD = 20.0  # L/h
+DEFAULT_MIN_SUPPLY_LITERS = 10.0   # Min liters to count as a "Supply Event"
+DEFAULT_ROLLING_DAYS = 7           # Days for consumption averaging
+
+# Event Categories
+EVENT_TYPE_SUPPLY = "supply"
+EVENT_TYPE_DRAIN = "drain"
+
+DRAIN_CAT_FLUSH = "toilet_flush"
+DRAIN_CAT_SHOWER = "shower"
+DRAIN_CAT_LAUNDRY = "laundry"
+DRAIN_CAT_OTHER = "other"
+
+# Storage Keys (in config entry)
+CONF_SUPPLY_HISTORY = "supply_history"
+CONF_CONSUMPTION_HISTORY = "consumption_history"
+CONF_DETECTION_THRESHOLD = "detection_threshold"

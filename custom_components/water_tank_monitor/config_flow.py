@@ -8,18 +8,11 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
-    CONF_CRITICAL_THRESHOLD,
-    CONF_DISTANCE_SENSOR,
-    CONF_LOW_THRESHOLD,
-    CONF_MAX_DISTANCE,
-    CONF_MIN_DISTANCE,
-    CONF_TANK_CAPACITY,
-    DEFAULT_CRITICAL_THRESHOLD,
-    DEFAULT_LOW_THRESHOLD,
-    DEFAULT_MAX_DISTANCE,
     DEFAULT_MIN_DISTANCE,
     DEFAULT_TANK_CAPACITY,
+    DEFAULT_DETECTION_THRESHOLD,
     DOMAIN,
+    CONF_DETECTION_THRESHOLD,
 )
 
 
@@ -90,6 +83,18 @@ def _build_schema(defaults: dict) -> vol.Schema:
                     step=1,
                     unit_of_measurement="%",
                     mode=selector.NumberSelectorMode.SLIDER,
+                )
+            ),
+            vol.Optional(
+                CONF_DETECTION_THRESHOLD,
+                default=defaults.get(CONF_DETECTION_THRESHOLD, DEFAULT_DETECTION_THRESHOLD),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1.0,
+                    max=500.0,
+                    step=1.0,
+                    unit_of_measurement="L/h",
+                    mode=selector.NumberSelectorMode.BOX,
                 )
             ),
         }

@@ -119,6 +119,28 @@ The firmware reports only raw distance — all calculations happen in HA via thi
 
 ---
 
+## Intelligent Analytics
+
+Beyond simple level monitoring, this integration analyzes your water usage patterns:
+
+### 🚽 Consumption Disaggregation (Experimental)
+The integration attempts to categorize "Drain Events" based on volume and speed:
+- **Toilet Flush**: 3L–12L drop in < 45 seconds.
+- **Shower**: 25L–80L drop over 3–15 minutes.
+- **Laundry**: Sustained large usage events (>35L).
+- **Other**: Any other significant water usage.
+
+### 📅 Supply Window Discovery
+No need to guess when the water arrives. The integration learns your municipal supply schedule:
+- **Typical Supply Windows**: Shows the most frequent start times of recent fill events.
+- **Supply Active**: High-sensitivity detection of incoming water flow.
+- **Daily Received**: Total liters supplied since midnight.
+
+### ⚙️ Sensitivity Tuning
+You can adjust the **Supply Detection Threshold** in the integration options. A lower value (e.g., 10 L/h) will detect slow trickles, while a higher value (e.g., 50 L/h) prevents false positives from sensor noise.
+
+---
+
 ## Formula Reference
 
 ```

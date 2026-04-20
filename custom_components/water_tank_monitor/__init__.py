@@ -16,6 +16,9 @@ from homeassistant.helpers import (
     entity_registry as er,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.event import async_track_time_change
+
+from .analytics import WaterTankAnalytics
 
 from .const import (
     ATTR_VOLUME,
@@ -39,9 +42,24 @@ PLATFORMS: list[str] = ["sensor", "binary_sensor"]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Water Tank Monitor from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {**entry.data, **entry.options}
+    
+    analytics = WaterTankAnalytics(hass, entry)
+    hass.data[DOMAIN][entry.entry_id] = {
+        **entry.data, 
+        **entry.options,
+        "analytics": analytics
+    }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Register midnight reset
+    entry.async_on_unload(
+        async_track_time_change(
+            hass, 
+            lambda _: analytics.reset_daily_stats(), 
+            hour=0, minute=0, second=0
+        )
+    )
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True

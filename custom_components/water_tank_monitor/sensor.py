@@ -45,13 +45,18 @@ async def async_setup_entry(
 ) -> None:
     """Set up sensor entities from a config entry."""
     config: dict[str, Any] = {**entry.data, **entry.options}
+    analytics = hass.data[DOMAIN][entry.entry_id]["analytics"]
+
     async_add_entities(
         [
             WaterTankPercentageSensor(hass, entry, config),
-            WaterTankVolumeSensor(hass, entry, config),
-            WaterTankFillRateSensor(hass, entry, config),
+            WaterTankVolumeSensor(hass, entry, config, analytics),
+            WaterTankFillRateSensor(hass, entry, config, analytics),
             WaterTankLowestDistanceSensor(hass, entry, config),
             WaterTankHighestDistanceSensor(hass, entry, config),
+            WaterTankDailySupplySensor(hass, entry, config, analytics),
+            WaterTankConsumptionEventSensor(hass, entry, config, analytics),
+            WaterTankTypicalSupplySensor(hass, entry, config, analytics),
         ]
     )
 
@@ -78,6 +83,7 @@ class _WaterTankBaseSensor(SensorEntity):
         self._d_min: float = float(config[CONF_MIN_DISTANCE])
         self._d_max: float = float(config[CONF_MAX_DISTANCE])
         self._capacity: float = float(config[CONF_TANK_CAPACITY])
+        self._analytics: WaterTankAnalytics = config.get("analytics")
 
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
@@ -151,8 +157,9 @@ class WaterTankVolumeSensor(_WaterTankBaseSensor):
     _attr_icon = "mdi:water"
     _attr_suggested_display_precision = 0
 
-    def __init__(self, hass, entry, config):
+    def __init__(self, hass, entry, config, analytics):
         super().__init__(hass, entry, config)
+        self._analytics = analytics
         self._attr_unique_id = f"{entry.entry_id}_volume"
         self._attr_name = "Water Volume"
 
@@ -175,8 +182,9 @@ class WaterTankFillRateSensor(_WaterTankBaseSensor):
     _attr_icon = "mdi:waves-arrow-up"
     _attr_suggested_display_precision = 1
 
-    def __init__(self, hass, entry, config):
+    def __init__(self, hass, entry, config, analytics):
         super().__init__(hass, entry, config)
+        self._analytics = analytics
         self._attr_unique_id = f"{entry.entry_id}_fill_rate"
         self._attr_name = "Fill Rate"
         self._readings: deque[tuple[datetime, float]] = deque(maxlen=FILL_RATE_WINDOW)
@@ -200,7 +208,12 @@ class WaterTankFillRateSensor(_WaterTankBaseSensor):
             self._attr_native_value = 0.0
             return
 
-        self._attr_native_value = round((v1 - v0) / dt_hours, 1)
+        val = round((v1 - v0) / dt_hours, 1)
+        self._attr_native_value = val
+        
+        # Feed analytics
+        if self._analytics:
+            self._analytics.process_reading(v1, val)
 
 
 class WaterTankLowestDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
@@ -285,3 +298,74 @@ class WaterTankHighestDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
 
         if self._attr_native_value is None or val > self._attr_native_value:
             self._attr_native_value = val
+
+
+class WaterTankDailySupplySensor(_WaterTankBaseSensor):
+    """Tracks total water received today."""
+
+    _attr_icon = "mdi:tray-arrow-down"
+    _attr_native_unit_of_measurement = "L"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    def __init__(self, hass, entry, config, analytics):
+        super().__init__(hass, entry, config)
+        self._analytics = analytics
+        self._attr_unique_id = f"{entry.entry_id}_daily_supply"
+        self._attr_name = "Daily Water Received"
+
+    @property
+    def native_value(self) -> float:
+        return round(self._analytics.daily_supply_total, 1)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return self._analytics.last_supply_stats
+
+
+class WaterTankConsumptionEventSensor(_WaterTankBaseSensor):
+    """Tracks the last detected consumption event (flush, shower, etc)."""
+
+    _attr_icon = "mdi:water-minus"
+    _attr_native_unit_of_measurement = "L"
+
+    def __init__(self, hass, entry, config, analytics):
+        super().__init__(hass, entry, config)
+        self._analytics = analytics
+        self._attr_unique_id = f"{entry.entry_id}_last_consumption"
+        self._attr_name = "Last Usage Event"
+
+    @property
+    def native_value(self) -> float | None:
+        return self._analytics.last_drain_stats.get("amount")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return self._analytics.last_drain_stats
+
+
+class WaterTankTypicalSupplySensor(_WaterTankBaseSensor):
+    """Shows discovered supply windows based on history."""
+
+    _attr_icon = "mdi:clock-check"
+    _attr_native_unit_of_measurement = None
+
+    def __init__(self, hass, entry, config, analytics):
+        super().__init__(hass, entry, config)
+        self._analytics = analytics
+        self._attr_unique_id = f"{entry.entry_id}_typical_supply"
+        self._attr_name = "Typical Supply Windows"
+
+    @property
+    def native_value(self) -> str | None:
+        if not self._analytics.typical_supply_times:
+            return "Discovery in progress..."
+        
+        # Sort and group times (simplified: just show them)
+        times = sorted(self._analytics.typical_supply_times)
+        return ", ".join([t.strftime("%H:%M") for t in times[:3]]) + ("..." if len(times) > 3 else "")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "all_recorded_times": [t.isoformat() for t in self._analytics.typical_supply_times]
+        }
