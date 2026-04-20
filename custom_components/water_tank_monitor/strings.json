@@ -10,7 +10,10 @@
           "max_distance": "Maximum distance — empty tank (m)",
           "tank_capacity": "Total tank capacity (L)",
           "low_threshold": "Low water threshold (%)",
-          "critical_threshold": "Critical water threshold (%)"
+          "critical_threshold": "Critical water threshold (%)",
+          "fill_rate_unit": "Fill rate display unit",
+          "leak_rate_threshold": "Leak detection threshold (L/h)",
+          "leak_duration_threshold": "Leak duration threshold (min)"
         }
       }
     },
@@ -32,13 +35,28 @@
           "max_distance": "Maximum distance — empty tank (m)",
           "tank_capacity": "Total tank capacity (L)",
           "low_threshold": "Low water threshold (%)",
-          "critical_threshold": "Critical water threshold (%)"
+          "critical_threshold": "Critical water threshold (%)",
+          "fill_rate_unit": "Fill rate display unit",
+          "leak_rate_threshold": "Leak detection threshold (L/h)",
+          "leak_duration_threshold": "Leak duration threshold (min)"
         }
       }
     },
     "error": {
       "invalid_distances": "Minimum distance must be less than maximum distance.",
       "invalid_thresholds": "Critical threshold must be less than low threshold."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "state": {
+          "full": "Full",
+          "low": "Low",
+          "critical": "Critical",
+          "normal": "Normal"
+        }
+      }
     }
   }
 }

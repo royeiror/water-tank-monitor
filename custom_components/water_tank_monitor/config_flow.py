@@ -11,17 +11,24 @@ from .const import (
     CONF_CRITICAL_THRESHOLD,
     CONF_DETECTION_THRESHOLD,
     CONF_DISTANCE_SENSOR,
+    CONF_FILL_RATE_UNIT,
+    CONF_LEAK_DURATION_THRESHOLD,
+    CONF_LEAK_RATE_THRESHOLD,
     CONF_LOW_THRESHOLD,
     CONF_MAX_DISTANCE,
     CONF_MIN_DISTANCE,
     CONF_TANK_CAPACITY,
     DEFAULT_CRITICAL_THRESHOLD,
     DEFAULT_DETECTION_THRESHOLD,
+    DEFAULT_LEAK_DURATION_THRESHOLD,
+    DEFAULT_LEAK_RATE_THRESHOLD,
     DEFAULT_LOW_THRESHOLD,
     DEFAULT_MAX_DISTANCE,
     DEFAULT_MIN_DISTANCE,
     DEFAULT_TANK_CAPACITY,
     DOMAIN,
+    FILL_RATE_UNITS,
+    UNIT_L_H,
 )
 
 
@@ -103,6 +110,39 @@ def _build_schema(defaults: dict) -> vol.Schema:
                     max=500.0,
                     step=1.0,
                     unit_of_measurement="L/h",
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Optional(
+                CONF_FILL_RATE_UNIT,
+                default=defaults.get(CONF_FILL_RATE_UNIT, UNIT_L_H),
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=FILL_RATE_UNITS,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(
+                CONF_LEAK_RATE_THRESHOLD,
+                default=defaults.get(CONF_LEAK_RATE_THRESHOLD, DEFAULT_LEAK_RATE_THRESHOLD),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0.1,
+                    max=50.0,
+                    step=0.1,
+                    unit_of_measurement="L/h",
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Optional(
+                CONF_LEAK_DURATION_THRESHOLD,
+                default=defaults.get(CONF_LEAK_DURATION_THRESHOLD, DEFAULT_LEAK_DURATION_THRESHOLD),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1,
+                    max=1440,
+                    step=1,
+                    unit_of_measurement="m",
                     mode=selector.NumberSelectorMode.BOX,
                 )
             ),

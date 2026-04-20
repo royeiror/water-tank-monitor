@@ -32,8 +32,19 @@ from .const import (
     CONF_TANK_CAPACITY,
     DOMAIN,
     FILL_RATE_WINDOW,
-    SIGNAL_RESET_BOUNDS,
     SIGNAL_ANALYTICS_UPDATE,
+    CONF_FILL_RATE_UNIT,
+    CONF_LOW_THRESHOLD,
+    CONF_CRITICAL_THRESHOLD,
+    STATUS_CRITICAL,
+    STATUS_LOW,
+    STATUS_NORMAL,
+    STATUS_FULL,
+    UNIT_L_H,
+    UNIT_L_M,
+    UNIT_L_S,
+    UNIT_GAL_H,
+    UNIT_GAL_M,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,13 +61,13 @@ async def async_setup_entry(
 
     async_add_entities(
         [
-            WaterTankPercentageSensor(hass, entry, config),
+            WaterTankStatusSensor(hass, entry, config, analytics),
+            WaterTankPercentageSensor(hass, entry, config, analytics),
             WaterTankVolumeSensor(hass, entry, config, analytics),
             WaterTankFillRateSensor(hass, entry, config, analytics),
             WaterTankLowestDistanceSensor(hass, entry, config),
             WaterTankHighestDistanceSensor(hass, entry, config),
             WaterTankDailySupplySensor(hass, entry, config, analytics),
-            WaterTankConsumptionEventSensor(hass, entry, config, analytics),
             WaterTankTypicalSupplySensor(hass, entry, config, analytics),
         ]
     )
@@ -142,14 +153,36 @@ class WaterTankPercentageSensor(_WaterTankBaseSensor):
     _attr_suggested_display_precision = 1
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, hass, entry, config):
+    def __init__(self, hass, entry, config, analytics):
         super().__init__(hass, entry, config)
+        self._analytics = analytics
         self._attr_unique_id = f"{entry.entry_id}_percentage"
         self._attr_name = "Fill Percentage"
 
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to analytics updates."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self._hass,
+                f"{SIGNAL_ANALYTICS_UPDATE}_{self._entry.entry_id}",
+                self._on_analytics_update,
+            )
+        )
+
+    @callback
+    def _on_analytics_update(self) -> None:
+        """Update value from analytics when smoothed volume changes."""
+        vol = self._analytics.smoothed_volume
+        if vol is None:
+            self._attr_native_value = None
+        else:
+            pct = (vol / self._capacity) * 100.0 if self._capacity > 0 else 0
+            self._attr_native_value = round(max(0.0, min(100.0, pct)), 1)
+        self.async_write_ha_state()
+
     def _process(self, dist_str: str) -> None:
-        pct = self._percentage(dist_str)
-        self._attr_native_value = round(pct, 1) if pct is not None else None
+        pass
 
 
 class WaterTankVolumeSensor(_WaterTankBaseSensor):
@@ -166,12 +199,25 @@ class WaterTankVolumeSensor(_WaterTankBaseSensor):
         self._attr_unique_id = f"{entry.entry_id}_volume"
         self._attr_name = "Water Volume"
 
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to analytics updates."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self._hass,
+                f"{SIGNAL_ANALYTICS_UPDATE}_{self._entry.entry_id}",
+                self._on_analytics_update,
+            )
+        )
+
+    @callback
+    def _on_analytics_update(self) -> None:
+        """Update value from analytics when smoothed volume changes."""
+        self._attr_native_value = self._analytics.smoothed_volume
+        self.async_write_ha_state()
+
     def _process(self, dist_str: str) -> None:
-        pct = self._percentage(dist_str)
-        if pct is None:
-            self._attr_native_value = None
-        else:
-            self._attr_native_value = round(pct / 100.0 * self._capacity, 1)
+        pass
 
 
 class WaterTankFillRateSensor(_WaterTankBaseSensor):
@@ -181,16 +227,15 @@ class WaterTankFillRateSensor(_WaterTankBaseSensor):
     Computed over the last FILL_RATE_WINDOW distance readings.
     """
 
-    _attr_native_unit_of_measurement = "L/h"
-    _attr_icon = "mdi:waves-arrow-up"
-    _attr_suggested_display_precision = 1
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, hass, entry, config, analytics):
         super().__init__(hass, entry, config)
         self._analytics = analytics
+        self._unit = entry.options.get(CONF_FILL_RATE_UNIT, UNIT_L_H)
         self._attr_unique_id = f"{entry.entry_id}_fill_rate"
         self._attr_name = "Fill Rate"
+        self._attr_native_unit_of_measurement = self._unit
         self._readings: deque[tuple[datetime, float]] = deque(maxlen=FILL_RATE_WINDOW)
 
     def _process(self, dist_str: str) -> None:
@@ -212,12 +257,25 @@ class WaterTankFillRateSensor(_WaterTankBaseSensor):
             self._attr_native_value = 0.0
             return
 
-        val = round((v1 - v0) / dt_hours, 1)
-        self._attr_native_value = val
+        val_l_h = (v1 - v0) / dt_hours
         
-        # Feed analytics
+        # Convert to selected unit
+        if self._unit == UNIT_L_M:
+            val = val_l_h / 60.0
+        elif self._unit == UNIT_L_S:
+            val = val_l_h / 3600.0
+        elif self._unit == UNIT_GAL_H:
+            val = val_l_h * 0.264172
+        elif self._unit == UNIT_GAL_M:
+            val = (val_l_h * 0.264172) / 60.0
+        else: # UNIT_L_H
+            val = val_l_h
+
+        self._attr_native_value = round(val, 2)
+        
+        # Feed analytics with L/h for internal consistency
         if self._analytics:
-            self._analytics.process_reading(v1, val)
+            self._analytics.process_reading(v1, val_l_h)
 
 
 class WaterTankLowestDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
@@ -339,18 +397,18 @@ class WaterTankDailySupplySensor(_WaterTankBaseSensor):
         return self._analytics.last_supply_stats
 
 
-class WaterTankConsumptionEventSensor(_WaterTankBaseSensor):
-    """Tracks the last detected consumption event (flush, shower, etc)."""
+class WaterTankStatusSensor(_WaterTankBaseSensor):
+    """Consolidated status sensor: Critical, Low, Normal, Full."""
 
-    _attr_icon = "mdi:water-minus"
-    _attr_native_unit_of_measurement = "L"
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:water-gauge"
 
     def __init__(self, hass, entry, config, analytics):
         super().__init__(hass, entry, config)
         self._analytics = analytics
-        self._attr_unique_id = f"{entry.entry_id}_last_consumption"
-        self._attr_name = "Last Usage Event"
+        self._attr_unique_id = f"{entry.entry_id}_status"
+        self._attr_name = "Tank Status"
+        self._low_threshold = config.get(CONF_LOW_THRESHOLD, 20)
+        self._crit_threshold = config.get(CONF_CRITICAL_THRESHOLD, 10)
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to analytics updates."""
@@ -359,17 +417,30 @@ class WaterTankConsumptionEventSensor(_WaterTankBaseSensor):
             async_dispatcher_connect(
                 self._hass,
                 f"{SIGNAL_ANALYTICS_UPDATE}_{self._entry.entry_id}",
-                self.async_write_ha_state,
+                self._on_analytics_update,
             )
         )
 
-    @property
-    def native_value(self) -> float | None:
-        return self._analytics.last_drain_stats.get("amount")
+    @callback
+    def _on_analytics_update(self) -> None:
+        """Update state based on percentage."""
+        vol = self._analytics.smoothed_volume
+        if vol is None:
+            self._attr_native_value = None
+        else:
+            pct = (vol / self._capacity) * 100.0 if self._capacity > 0 else 0
+            if pct >= 95.0:
+                self._attr_native_value = STATUS_FULL
+            elif pct <= self._crit_threshold:
+                self._attr_native_value = STATUS_CRITICAL
+            elif pct <= self._low_threshold:
+                self._attr_native_value = STATUS_LOW
+            else:
+                self._attr_native_value = STATUS_NORMAL
+        self.async_write_ha_state()
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        return self._analytics.last_drain_stats
+    def _process(self, dist_str: str) -> None:
+        pass
 
 
 class WaterTankTypicalSupplySensor(_WaterTankBaseSensor):

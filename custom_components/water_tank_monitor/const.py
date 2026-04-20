@@ -9,6 +9,9 @@ CONF_MAX_DISTANCE = "max_distance"
 CONF_TANK_CAPACITY = "tank_capacity"
 CONF_LOW_THRESHOLD = "low_threshold"
 CONF_CRITICAL_THRESHOLD = "critical_threshold"
+CONF_FILL_RATE_UNIT = "fill_rate_unit"
+CONF_LEAK_RATE_THRESHOLD = "leak_rate_threshold"
+CONF_LEAK_DURATION_THRESHOLD = "leak_duration_threshold"
 
 # Defaults
 DEFAULT_MIN_DISTANCE = 0.10      # meters — distance when tank is FULL
@@ -16,6 +19,8 @@ DEFAULT_MAX_DISTANCE = 1.20      # meters — distance when tank is EMPTY
 DEFAULT_TANK_CAPACITY = 700.0    # liters
 DEFAULT_LOW_THRESHOLD = 20       # percent
 DEFAULT_CRITICAL_THRESHOLD = 10  # percent
+DEFAULT_LEAK_RATE_THRESHOLD = 2.0  # L/h
+DEFAULT_LEAK_DURATION_THRESHOLD = 30  # minutes
 FULL_THRESHOLD = 95.0            # percent — considered "full"
 
 # Fill rate calculation
@@ -40,6 +45,27 @@ SIGNAL_ANALYTICS_UPDATE = "water_tank_monitor_analytics_update"
 DEFAULT_DETECTION_THRESHOLD = 20.0  # L/h
 DEFAULT_MIN_SUPPLY_LITERS = 10.0   # Min liters to count as a "Supply Event"
 DEFAULT_ROLLING_DAYS = 7           # Days for consumption averaging
+
+# Status States
+STATUS_CRITICAL = "critical"
+STATUS_LOW = "low"
+STATUS_NORMAL = "normal"
+STATUS_FULL = "full"
+
+# Units
+UNIT_L_H = "L/h"
+UNIT_L_M = "L/min"
+UNIT_L_S = "L/s"
+UNIT_GAL_H = "gal/h"
+UNIT_GAL_M = "gal/min"
+
+FILL_RATE_UNITS = [
+    UNIT_L_H,
+    UNIT_L_M,
+    UNIT_L_S,
+    UNIT_GAL_H,
+    UNIT_GAL_M,
+]
 
 # Event Categories
 EVENT_TYPE_SUPPLY = "supply"
