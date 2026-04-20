@@ -25,7 +25,11 @@ FILL_RATE_WINDOW = 10  # number of readings to keep for derivative
 SERVICE_CALIBRATE_FULL = "calibrate_full"
 SERVICE_CALIBRATE_EMPTY = "calibrate_empty"
 SERVICE_SET_VOLUME = "set_volume"
+SERVICE_RESET_CALIBRATION_BOUNDS = "reset_calibration_bounds"
 
 # Service Fields
 ATTR_CONFIG_ENTRY_ID = "config_entry_id"
 ATTR_VOLUME = "volume"
+
+# Signal names
+SIGNAL_RESET_BOUNDS = "water_tank_monitor_reset_bounds"

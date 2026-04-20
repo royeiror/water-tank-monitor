@@ -83,19 +83,25 @@ Copy the `custom_components/water_tank_monitor/` folder into your HA `config/cus
 
 ## Calibration & Services
 
-The integration provides the following services to make management easier without re-configuring the integration:
+The integration provides services to manage your tank without re-configuring:
 
 - **Calibrate Full**: Sets the `min_distance` to the current sensor reading.
 - **Calibrate Empty**: Sets the `max_distance` to the current sensor reading.
 - **Set Tank Volume**: Updates the tank capacity in liters.
+- **Reset Calibration Bounds**: Clears the historical high/low records.
+
+### Calibration Bounds Tracking
+If you don't know your tank's physical limits, the integration provides two tracking sensors:
+- `sensor.lowest_distance_ever_seen`: Absolute minimum (Full) reading recorded.
+- `sensor.highest_distance_ever_seen`: Absolute maximum (Empty) reading recorded.
+
+These sensors **persist across restarts**. Let the system run for a few days; once the tank has been both full and significantly empty, use these recorded values to calibrate your `Min Distance` and `Max Distance` for 100% accuracy.
 
 ### How to calibrate:
-1. Ensure your water tank is physically at the state you want to calibrate (e.g., completely full).
+1. Ensure your water tank is physically at the state you want to calibrate (or check the "Seen" sensors).
 2. Go to **Developer Tools → Actions**.
-3. Search for `Water Tank Monitor: Calibrate Full`.
-4. Select your Water Tank device as the target.
-5. Click **Perform Action**.
-6. Repeat for `Calibrate Empty` when the tank is empty.
+3. Search for `Water Tank Monitor: Calibrate Full` or `Empty`.
+4. Select your Water Tank device as the target and click **Perform Action**.
 
 > [!TIP]
 > You can add buttons to your dashboard that call these services for one-tap calibration!

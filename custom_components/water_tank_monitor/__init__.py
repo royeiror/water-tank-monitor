@@ -15,6 +15,7 @@ from homeassistant.helpers import (
     device_registry as dr,
     entity_registry as er,
 )
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import (
     ATTR_VOLUME,
@@ -25,7 +26,9 @@ from .const import (
     DOMAIN,
     SERVICE_CALIBRATE_EMPTY,
     SERVICE_CALIBRATE_FULL,
+    SERVICE_RESET_CALIBRATION_BOUNDS,
     SERVICE_SET_VOLUME,
+    SIGNAL_RESET_BOUNDS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,6 +119,16 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         hass.config_entries.async_update_entry(entry, options=new_options)
         _LOGGER.info("Updated tank volume to %s L for device %s", volume, device_id)
 
+    async def handle_reset_bounds(call: ServiceCall) -> None:
+        """Handle calibration bounds reset service call."""
+        device_id = call.data.get("device_id")
+        entry = await _async_get_entry_from_device(device_id)
+        if not entry:
+            return
+
+        async_dispatcher_send(hass, f"{SIGNAL_RESET_BOUNDS}_{entry.entry_id}")
+        _LOGGER.info("Reset calibration bounds for device %s", device_id)
+
     # Register services
     # Note: Service descriptions are in services.yaml
     hass.services.async_register(
@@ -136,6 +149,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             vol.Required("device_id"): str,
             vol.Required(ATTR_VOLUME): vol.Coerce(float),
         })
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RESET_CALIBRATION_BOUNDS,
+        handle_reset_bounds,
     )
 
     return True

@@ -30,3 +30,10 @@ set_volume:
           step: 1
           unit_of_measurement: L
           mode: box
+
+reset_calibration_bounds:
+  name: Reset Calibration Bounds
+  description: Clears the historical lowest and highest distance seen by the sensor.
+  target:
+    device:
+      integration: water_tank_monitor
