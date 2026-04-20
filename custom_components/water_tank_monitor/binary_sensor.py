@@ -75,7 +75,7 @@ class _WaterTankAlertBase(BinarySensorEntity):
             "name": "Water Tank Monitor",
             "manufacturer": "royeiror",
             "model": "Water Tank Monitor",
-            "configuration_url": "https://github.com/royeiror/tinaco-monitor",
+            "configuration_url": "https://github.com/royeiror/water-tank-monitor",
         }
 
     async def async_added_to_hass(self) -> None:

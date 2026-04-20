@@ -33,7 +33,7 @@ Built for use with an **ESP8266/ESP32 + HC-SR04 ultrasonic sensor** flashed with
 ### 1. HACS (recommended)
 
 1. Open HACS → **Integrations** → ⋮ menu → **Custom repositories**
-2. Add `https://github.com/royeiror/tinaco-monitor` — category: **Integration**
+2. Add `https://github.com/royeiror/water-tank-monitor` — category: **Integration**
 3. Click **Download** on *Water Tank Monitor*
 4. **Restart Home Assistant**
 
