@@ -20,3 +20,12 @@ FULL_THRESHOLD = 95.0            # percent — considered "full"
 
 # Fill rate calculation
 FILL_RATE_WINDOW = 10  # number of readings to keep for derivative
+
+# Services
+SERVICE_CALIBRATE_FULL = "calibrate_full"
+SERVICE_CALIBRATE_EMPTY = "calibrate_empty"
+SERVICE_SET_VOLUME = "set_volume"
+
+# Service Fields
+ATTR_CONFIG_ENTRY_ID = "config_entry_id"
+ATTR_VOLUME = "volume"

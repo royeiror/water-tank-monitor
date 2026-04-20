@@ -81,6 +81,27 @@ Copy the `custom_components/water_tank_monitor/` folder into your HA `config/cus
 
 ---
 
+## Calibration & Services
+
+The integration provides the following services to make management easier without re-configuring the integration:
+
+- **Calibrate Full**: Sets the `min_distance` to the current sensor reading.
+- **Calibrate Empty**: Sets the `max_distance` to the current sensor reading.
+- **Set Tank Volume**: Updates the tank capacity in liters.
+
+### How to calibrate:
+1. Ensure your water tank is physically at the state you want to calibrate (e.g., completely full).
+2. Go to **Developer Tools → Actions**.
+3. Search for `Water Tank Monitor: Calibrate Full`.
+4. Select your Water Tank device as the target.
+5. Click **Perform Action**.
+6. Repeat for `Calibrate Empty` when the tank is empty.
+
+> [!TIP]
+> You can add buttons to your dashboard that call these services for one-tap calibration!
+
+---
+
 ## ESPHome Firmware Example
 
 A ready-to-flash ESPHome configuration is included in [`esphome/water_tank.yaml`](esphome/water_tank.yaml).

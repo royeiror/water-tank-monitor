@@ -1,0 +1,32 @@
+calibrate_full:
+  name: Calibrate Full
+  description: Sets the current sensor reading as the distance for a full tank (min_distance).
+  target:
+    device:
+      integration: water_tank_monitor
+
+calibrate_empty:
+  name: Calibrate Empty
+  description: Sets the current sensor reading as the distance for an empty tank (max_distance).
+  target:
+    device:
+      integration: water_tank_monitor
+
+set_volume:
+  name: Set Tank Volume
+  description: Updates the total capacity of the water tank in liters.
+  target:
+    device:
+      integration: water_tank_monitor
+  fields:
+    volume:
+      name: Volume
+      description: The total capacity of the tank in liters.
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 1000000
+          step: 1
+          unit_of_measurement: L
+          mode: box
