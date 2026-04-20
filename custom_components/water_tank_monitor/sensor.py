@@ -32,6 +32,7 @@ from .const import (
     CONF_TANK_CAPACITY,
     DOMAIN,
     FILL_RATE_WINDOW,
+    SIGNAL_RESET_BOUNDS,
     SIGNAL_ANALYTICS_UPDATE,
     CONF_FILL_RATE_UNIT,
     CONF_LOW_THRESHOLD,
@@ -65,8 +66,7 @@ async def async_setup_entry(
             WaterTankPercentageSensor(hass, entry, config, analytics),
             WaterTankVolumeSensor(hass, entry, config, analytics),
             WaterTankFillRateSensor(hass, entry, config, analytics),
-            WaterTankLowestDistanceSensor(hass, entry, config),
-            WaterTankHighestDistanceSensor(hass, entry, config),
+            WaterTankRawDistanceSensor(hass, entry, config),
             WaterTankDailySupplySensor(hass, entry, config, analytics),
             WaterTankTypicalSupplySensor(hass, entry, config, analytics),
         ]
@@ -278,25 +278,30 @@ class WaterTankFillRateSensor(_WaterTankBaseSensor):
             self._analytics.process_reading(v1, val_l_h)
 
 
-class WaterTankLowestDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
-    """Tracks the absolute lowest (Full) raw distance ever seen."""
+class WaterTankRawDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
+    """Tracks the current raw distance and maintains the record range seen."""
 
-    _attr_icon = "mdi:arrow-collapse-down"
+    _attr_icon = "mdi:ruler"
     _attr_native_unit_of_measurement = "m"
     _attr_suggested_display_precision = 3
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, hass, entry, config):
         super().__init__(hass, entry, config)
-        self._attr_unique_id = f"{entry.entry_id}_lowest_seen"
-        self._attr_name = "Lowest Distance Ever Seen"
+        self._attr_unique_id = f"{entry.entry_id}_raw_distance"
+        self._attr_name = "Raw Distance"
         self._attr_native_value = None
+        self._lowest_seen = None
+        self._highest_seen = None
 
     async def async_added_to_hass(self) -> None:
         """Call when entity is added to hass."""
         await super().async_added_to_hass()
-        if (last_sensor_data := await self.async_get_last_sensor_data()) is not None:
-            self._attr_native_value = last_sensor_data.native_value
+        if (last_state := await self.async_get_last_state()) is not None:
+            self._attr_native_value = last_state.state if last_state.state not in ("unknown", "unavailable") else None
+            attrs = last_state.attributes
+            self._lowest_seen = attrs.get("lowest_seen")
+            self._highest_seen = attrs.get("highest_seen")
 
         self.async_on_remove(
             async_dispatcher_connect(
@@ -308,8 +313,16 @@ class WaterTankLowestDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
 
     @callback
     def _reset_bounds(self) -> None:
-        self._attr_native_value = None
+        self._lowest_seen = None
+        self._highest_seen = None
         self.async_write_ha_state()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "lowest_seen": self._lowest_seen,
+            "highest_seen": self._highest_seen,
+        }
 
     def _process(self, dist_str: str) -> None:
         try:
@@ -317,51 +330,12 @@ class WaterTankLowestDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
         except (ValueError, TypeError):
             return
 
-        if self._attr_native_value is None or val < self._attr_native_value:
-            self._attr_native_value = val
+        self._attr_native_value = val
 
-
-class WaterTankHighestDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
-    """Tracks the absolute highest (Empty) raw distance ever seen."""
-
-    _attr_icon = "mdi:arrow-expand-up"
-    _attr_native_unit_of_measurement = "m"
-    _attr_suggested_display_precision = 3
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, hass, entry, config):
-        super().__init__(hass, entry, config)
-        self._attr_unique_id = f"{entry.entry_id}_highest_seen"
-        self._attr_name = "Highest Distance Ever Seen"
-        self._attr_native_value = None
-
-    async def async_added_to_hass(self) -> None:
-        """Call when entity is added to hass."""
-        await super().async_added_to_hass()
-        if (last_sensor_data := await self.async_get_last_sensor_data()) is not None:
-            self._attr_native_value = last_sensor_data.native_value
-
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self._hass,
-                f"{SIGNAL_RESET_BOUNDS}_{self._entry.entry_id}",
-                self._reset_bounds,
-            )
-        )
-
-    @callback
-    def _reset_bounds(self) -> None:
-        self._attr_native_value = None
-        self.async_write_ha_state()
-
-    def _process(self, dist_str: str) -> None:
-        try:
-            val = float(dist_str)
-        except (ValueError, TypeError):
-            return
-
-        if self._attr_native_value is None or val > self._attr_native_value:
-            self._attr_native_value = val
+        if self._lowest_seen is None or val < self._lowest_seen:
+            self._lowest_seen = val
+        if self._highest_seen is None or val > self._highest_seen:
+            self._highest_seen = val
 
 
 class WaterTankDailySupplySensor(_WaterTankBaseSensor):
