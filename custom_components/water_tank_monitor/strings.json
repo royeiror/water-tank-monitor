@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Set Up Tinaco Monitor",
+        "title": "Set Up Water Tank Monitor",
         "description": "Enter your water tank parameters.",
         "data": {
           "distance_sensor": "Distance Sensor",
@@ -25,7 +25,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Tinaco Monitor Options",
+        "title": "Water Tank Monitor Options",
         "data": {
           "distance_sensor": "Distance Sensor",
           "min_distance": "Minimum distance — full tank (m)",

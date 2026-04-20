@@ -1,62 +1,62 @@
 blueprint:
-  name: "Tinaco Monitor — Alertas de Nivel"
+  name: "Water Tank Monitor — Level Alerts"
   description: >
-    Envía notificaciones push (app de Home Assistant) y notificaciones
-    persistentes en la barra lateral cuando el nivel del tinaco sube o baja
-    de los umbrales configurados, o cuando se llena.
+    Sends push notifications (Home Assistant companion app) and persistent
+    sidebar notifications when the water tank level drops below configured
+    thresholds, or when it becomes full.
   domain: automation
   source_url: https://github.com/royeiror/tinaco-monitor/blob/main/blueprints/automation/tinaco_monitor/tank_alerts.yaml
 
   input:
     notify_device:
-      name: Dispositivo Móvil
+      name: Mobile Device
       description: >
-        Dispositivo con la aplicación de Home Assistant instalada.
-        Recibirá las notificaciones push.
+        Device with the Home Assistant app installed.
+        This device will receive push notifications.
       selector:
         device:
           integration: mobile_app
 
-    sensor_nivel_bajo:
-      name: Sensor — Nivel Bajo
-      description: "Selecciona binary_sensor.tinaco_monitor_nivel_bajo"
+    sensor_low_level:
+      name: Sensor — Low Level
+      description: "Select binary_sensor.water_tank_monitor_low_level"
       selector:
         entity:
           domain: binary_sensor
 
-    sensor_nivel_critico:
-      name: Sensor — Nivel Crítico
-      description: "Selecciona binary_sensor.tinaco_monitor_nivel_critico"
+    sensor_critical_level:
+      name: Sensor — Critical Level
+      description: "Select binary_sensor.water_tank_monitor_critical_level"
       selector:
         entity:
           domain: binary_sensor
 
-    sensor_lleno:
-      name: Sensor — Tinaco Lleno
-      description: "Selecciona binary_sensor.tinaco_monitor_lleno"
+    sensor_tank_full:
+      name: Sensor — Tank Full
+      description: "Select binary_sensor.water_tank_monitor_tank_full"
       selector:
         entity:
           domain: binary_sensor
 
-    sensor_volumen:
-      name: Sensor — Volumen de Agua
-      description: "Selecciona sensor.tinaco_monitor_volumen_de_agua"
+    sensor_volume:
+      name: Sensor — Water Volume
+      description: "Select sensor.water_tank_monitor_water_volume"
       selector:
         entity:
           domain: sensor
 
-    sensor_porcentaje:
-      name: Sensor — Porcentaje de Llenado
-      description: "Selecciona sensor.tinaco_monitor_porcentaje_de_llenado"
+    sensor_percentage:
+      name: Sensor — Fill Percentage
+      description: "Select sensor.water_tank_monitor_fill_percentage"
       selector:
         entity:
           domain: sensor
 
     delay_minutes:
-      name: Retardo antes de notificar (minutos)
+      name: Alert delay (minutes)
       description: >
-        Espera este tiempo antes de enviar la alerta para ignorar lecturas
-        transitorias del sensor. Recomendado: 2 minutos.
+        Wait this long before firing an alert to ignore transient sensor
+        readings. Recommended: 2 minutes.
       default: 2
       selector:
         number:
@@ -69,8 +69,8 @@ blueprint:
 # ── Variables ──────────────────────────────────────────────────────────────
 variables:
   notify_device: !input notify_device
-  sensor_volumen: !input sensor_volumen
-  sensor_porcentaje: !input sensor_porcentaje
+  sensor_volume: !input sensor_volume
+  sensor_percentage: !input sensor_percentage
   notify_service: >-
     {{ 'notify.mobile_app_' ~ (
          device_attr(notify_device, 'name')
@@ -82,103 +82,100 @@ variables:
 # ── Triggers ───────────────────────────────────────────────────────────────
 trigger:
   - platform: state
-    entity_id: !input sensor_nivel_critico
+    entity_id: !input sensor_critical_level
     to: "on"
     for:
       minutes: !input delay_minutes
-    id: critico
+    id: critical
 
   - platform: state
-    entity_id: !input sensor_nivel_bajo
+    entity_id: !input sensor_low_level
     to: "on"
     for:
       minutes: !input delay_minutes
-    id: bajo
+    id: low
 
   - platform: state
-    entity_id: !input sensor_lleno
+    entity_id: !input sensor_tank_full
     to: "on"
     for:
       minutes: !input delay_minutes
-    id: lleno
+    id: full
 
 # ── Actions ────────────────────────────────────────────────────────────────
 action:
   - variables:
-      volume: "{{ states(sensor_volumen) | float(0) | round(0) | int }}"
-      pct: "{{ states(sensor_porcentaje) | float(0) | round(0) | int }}"
+      volume: "{{ states(sensor_volume) | float(0) | round(0) | int }}"
+      pct: "{{ states(sensor_percentage) | float(0) | round(0) | int }}"
 
   - choose:
 
-      # ── Nivel Crítico ────────────────────────────────────────────────────
+      # ── Critical Level ───────────────────────────────────────────────────
       - conditions:
           - condition: trigger
-            id: critico
+            id: critical
         sequence:
           - action: "{{ notify_service }}"
             data:
-              title: "🔴 ¡Tinaco Casi Vacío!"
+              title: "🔴 Water Tank Almost Empty!"
               message: >-
-                ¡El tinaco está casi vacío! Solo quedan {{ volume }} L ({{ pct }}%).
-                Por favor llénalo lo antes posible.
+                The water tank is almost empty! Only {{ volume }} L remaining ({{ pct }}%).
+                Please refill as soon as possible.
               data:
                 push:
                   sound: default
           - action: persistent_notification.create
             data:
-              title: "🔴 Tinaco — Nivel Crítico"
+              title: "🔴 Water Tank — Critical Level"
               message: >-
-                ¡El tinaco está casi vacío! Solo quedan {{ volume }} L ({{ pct }}%).
-              notification_id: tinaco_nivel_critico
-          # Dismiss the lower-priority "bajo" notification if it was shown
+                The water tank is almost empty! Only {{ volume }} L remaining ({{ pct }}%).
+              notification_id: water_tank_critical
           - action: persistent_notification.dismiss
             data:
-              notification_id: tinaco_nivel_bajo
+              notification_id: water_tank_low
 
-      # ── Nivel Bajo ───────────────────────────────────────────────────────
+      # ── Low Level ────────────────────────────────────────────────────────
       - conditions:
           - condition: trigger
-            id: bajo
-          # Only alert for "bajo" if it hasn't crossed into "crítico" yet
+            id: low
           - condition: state
-            entity_id: !input sensor_nivel_critico
+            entity_id: !input sensor_critical_level
             state: "off"
         sequence:
           - action: "{{ notify_service }}"
             data:
-              title: "🟡 Tinaco — Nivel Bajo"
+              title: "🟡 Water Tank — Low Level"
               message: >-
-                El tinaco está al {{ pct }}%. Solo quedan {{ volume }} L.
-                Considera llenarlo pronto.
+                The water tank is at {{ pct }}%. Only {{ volume }} L remaining.
+                Consider refilling soon.
           - action: persistent_notification.create
             data:
-              title: "🟡 Tinaco — Nivel Bajo"
+              title: "🟡 Water Tank — Low Level"
               message: >-
-                El tinaco está al {{ pct }}%. Solo quedan {{ volume }} L.
-              notification_id: tinaco_nivel_bajo
+                The water tank is at {{ pct }}%. Only {{ volume }} L remaining.
+              notification_id: water_tank_low
 
-      # ── Lleno ────────────────────────────────────────────────────────────
+      # ── Tank Full ────────────────────────────────────────────────────────
       - conditions:
           - condition: trigger
-            id: lleno
+            id: full
         sequence:
           - action: "{{ notify_service }}"
             data:
-              title: "🟢 ¡Tinaco Lleno!"
+              title: "🟢 Water Tank Full!"
               message: >-
-                El tinaco está lleno — {{ volume }} L ({{ pct }}%).
-                ¡No olvides cerrar la llave!
-          # Dismiss any previous alerts
+                The water tank is full — {{ volume }} L ({{ pct }}%).
+                Don't forget to close the valve!
           - action: persistent_notification.dismiss
             data:
-              notification_id: tinaco_nivel_bajo
+              notification_id: water_tank_low
           - action: persistent_notification.dismiss
             data:
-              notification_id: tinaco_nivel_critico
+              notification_id: water_tank_critical
           - action: persistent_notification.create
             data:
-              title: "🟢 Tinaco Lleno"
-              message: "El tinaco está lleno — {{ volume }} L."
-              notification_id: tinaco_lleno
+              title: "🟢 Water Tank Full"
+              message: "The water tank is full — {{ volume }} L."
+              notification_id: water_tank_full
 
 mode: single

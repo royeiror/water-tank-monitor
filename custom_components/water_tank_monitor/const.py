@@ -1,6 +1,6 @@
-"""Constants for Tinaco Monitor."""
+"""Constants for Water Tank Monitor."""
 
-DOMAIN = "tinaco_monitor"
+DOMAIN = "water_tank_monitor"
 
 # Config entry keys
 CONF_DISTANCE_SENSOR = "distance_sensor"

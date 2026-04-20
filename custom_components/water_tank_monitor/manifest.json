@@ -1,7 +1,7 @@
 {
-  "domain": "tinaco_monitor",
-  "name": "Tinaco Monitor",
-  "version": "1.0.0",
+  "domain": "water_tank_monitor",
+  "name": "Water Tank Monitor",
+  "version": "1.1.0",
   "config_flow": true,
   "documentation": "https://github.com/royeiror/tinaco-monitor",
   "requirements": [],

@@ -1,7 +1,7 @@
-title: Tinaco
+title: Water Tank
 views:
-  - title: Monitor de Agua
-    path: tinaco
+  - title: Water Tank Monitor
+    path: water-tank
     icon: mdi:water-pump
     badges: []
     cards:
@@ -10,8 +10,8 @@ views:
       - type: horizontal-stack
         cards:
           - type: gauge
-            entity: sensor.tinaco_monitor_porcentaje_de_llenado
-            name: Nivel del Tinaco
+            entity: sensor.water_tank_monitor_fill_percentage
+            name: Tank Level
             unit: "%"
             min: 0
             max: 100
@@ -22,62 +22,59 @@ views:
               red: 0
 
           - type: entities
-            title: Estado Actual
+            title: Current Status
             show_header_toggle: false
             entities:
-              - entity: sensor.tinaco_monitor_volumen_de_agua
-                name: Volumen
+              - entity: sensor.water_tank_monitor_water_volume
+                name: Volume
                 icon: mdi:water
-              - entity: sensor.tinaco_monitor_porcentaje_de_llenado
-                name: Porcentaje
+              - entity: sensor.water_tank_monitor_fill_percentage
+                name: Fill Level
                 icon: mdi:water-percent
-              - entity: sensor.tinaco_distancia_al_agua
-                name: Distancia raw
-                icon: mdi:ruler
-              - entity: sensor.tinaco_monitor_tasa_de_llenado
-                name: Tasa de llenado
+              - entity: sensor.water_tank_monitor_fill_rate
+                name: Fill Rate
                 icon: mdi:waves-arrow-up
               - type: divider
-              - entity: binary_sensor.tinaco_monitor_nivel_bajo
-                name: Nivel Bajo
+              - entity: binary_sensor.water_tank_monitor_low_level
+                name: Low Level
                 icon: mdi:water-alert
-              - entity: binary_sensor.tinaco_monitor_nivel_critico
-                name: Nivel Crítico
+              - entity: binary_sensor.water_tank_monitor_critical_level
+                name: Critical Level
                 icon: mdi:water-off
-              - entity: binary_sensor.tinaco_monitor_tinaco_lleno
-                name: Tinaco Lleno
+              - entity: binary_sensor.water_tank_monitor_tank_full
+                name: Tank Full
                 icon: mdi:water-check
 
       # ── Row 2: 24h history ───────────────────────────────────────────────
       - type: history-graph
-        title: Últimas 24 Horas
+        title: Last 24 Hours
         hours_to_show: 24
         logarithmic_scale: false
         entities:
-          - entity: sensor.tinaco_monitor_porcentaje_de_llenado
-            name: Porcentaje (%)
-          - entity: sensor.tinaco_monitor_volumen_de_agua
-            name: Volumen (L)
+          - entity: sensor.water_tank_monitor_fill_percentage
+            name: Fill Level (%)
+          - entity: sensor.water_tank_monitor_water_volume
+            name: Volume (L)
 
       # ── Row 3: 7-day history ─────────────────────────────────────────────
       - type: history-graph
-        title: Últimos 7 Días
+        title: Last 7 Days
         hours_to_show: 168
         logarithmic_scale: false
         entities:
-          - entity: sensor.tinaco_monitor_porcentaje_de_llenado
-            name: Porcentaje (%)
-          - entity: sensor.tinaco_monitor_volumen_de_agua
-            name: Volumen (L)
+          - entity: sensor.water_tank_monitor_fill_percentage
+            name: Fill Level (%)
+          - entity: sensor.water_tank_monitor_water_volume
+            name: Volume (L)
 
       # ── Row 4: Daily statistics ──────────────────────────────────────────
       - type: statistics-graph
-        title: Estadísticas de Hoy
+        title: Today's Statistics
         entities:
-          - entity: sensor.tinaco_monitor_porcentaje_de_llenado
-            name: Porcentaje
-          - entity: sensor.tinaco_monitor_volumen_de_agua
-            name: Volumen
+          - entity: sensor.water_tank_monitor_fill_percentage
+            name: Fill Level
+          - entity: sensor.water_tank_monitor_water_volume
+            name: Volume
         stat_types:
           - min
           - max

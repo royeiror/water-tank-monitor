@@ -1,10 +1,10 @@
-"""Binary sensor platform for Tinaco Monitor.
+"""Binary sensor platform for Water Tank Monitor.
 
 Three binary sensors driven by state-change events from the distance sensor:
 
-  - TinacoLowAlertSensor      — ON when fill % < low_threshold
-  - TinacocriticalAlertSensor — ON when fill % < critical_threshold
-  - TinacoFullSensor           — ON when fill % >= 95 %
+  - WaterTankLowAlertSensor      — ON when fill % < low_threshold
+  - WaterTankCriticalAlertSensor — ON when fill % < critical_threshold
+  - WaterTankFullSensor           — ON when fill % >= 95 %
 """
 from __future__ import annotations
 
@@ -41,17 +41,17 @@ async def async_setup_entry(
     config: dict[str, Any] = {**entry.data, **entry.options}
     async_add_entities(
         [
-            TinacoLowAlertSensor(hass, entry, config),
-            TinacocriticalAlertSensor(hass, entry, config),
-            TinacoFullSensor(hass, entry, config),
+            WaterTankLowAlertSensor(hass, entry, config),
+            WaterTankCriticalAlertSensor(hass, entry, config),
+            WaterTankFullSensor(hass, entry, config),
         ]
     )
 
 
-# ─── Base ────────────────────────────────────────────────────────────────────
+# ─── Base ─────────────────────────────────────────────────────────────────────
 
 
-class _TinacoAlertBase(BinarySensorEntity):
+class _WaterTankAlertBase(BinarySensorEntity):
     _attr_has_entity_name = True
     _attr_should_poll = False
 
@@ -72,7 +72,7 @@ class _TinacoAlertBase(BinarySensorEntity):
 
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Tinaco Monitor",
+            "name": "Water Tank Monitor",
             "manufacturer": "royeiror",
             "model": "Water Tank Monitor",
             "configuration_url": "https://github.com/royeiror/tinaco-monitor",
@@ -112,10 +112,10 @@ class _TinacoAlertBase(BinarySensorEntity):
         raise NotImplementedError
 
 
-# ─── Concrete binary sensors ─────────────────────────────────────────────────
+# ─── Concrete binary sensors ──────────────────────────────────────────────────
 
 
-class TinacoLowAlertSensor(_TinacoAlertBase):
+class WaterTankLowAlertSensor(_WaterTankAlertBase):
     """ON when fill level is below the user-defined low threshold."""
 
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
@@ -123,8 +123,8 @@ class TinacoLowAlertSensor(_TinacoAlertBase):
 
     def __init__(self, hass, entry, config):
         super().__init__(hass, entry, config)
-        self._attr_unique_id = f"{entry.entry_id}_nivel_bajo"
-        self._attr_name = "Nivel Bajo"
+        self._attr_unique_id = f"{entry.entry_id}_low_level"
+        self._attr_name = "Low Level"
 
     def _evaluate(self, dist_str: str) -> None:
         pct = self._percentage(dist_str)
@@ -132,7 +132,7 @@ class TinacoLowAlertSensor(_TinacoAlertBase):
             self._attr_is_on = pct < self._low_threshold
 
 
-class TinacocriticalAlertSensor(_TinacoAlertBase):
+class WaterTankCriticalAlertSensor(_WaterTankAlertBase):
     """ON when fill level is below the user-defined critical threshold."""
 
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
@@ -140,8 +140,8 @@ class TinacocriticalAlertSensor(_TinacoAlertBase):
 
     def __init__(self, hass, entry, config):
         super().__init__(hass, entry, config)
-        self._attr_unique_id = f"{entry.entry_id}_nivel_critico"
-        self._attr_name = "Nivel Crítico"
+        self._attr_unique_id = f"{entry.entry_id}_critical_level"
+        self._attr_name = "Critical Level"
 
     def _evaluate(self, dist_str: str) -> None:
         pct = self._percentage(dist_str)
@@ -149,7 +149,7 @@ class TinacocriticalAlertSensor(_TinacoAlertBase):
             self._attr_is_on = pct < self._critical_threshold
 
 
-class TinacoFullSensor(_TinacoAlertBase):
+class WaterTankFullSensor(_WaterTankAlertBase):
     """ON when tank is considered full (>= 95 %)."""
 
     _attr_device_class = None  # Not a "problem" — informational
@@ -157,8 +157,8 @@ class TinacoFullSensor(_TinacoAlertBase):
 
     def __init__(self, hass, entry, config):
         super().__init__(hass, entry, config)
-        self._attr_unique_id = f"{entry.entry_id}_lleno"
-        self._attr_name = "Tinaco Lleno"
+        self._attr_unique_id = f"{entry.entry_id}_tank_full"
+        self._attr_name = "Tank Full"
 
     def _evaluate(self, dist_str: str) -> None:
         pct = self._percentage(dist_str)

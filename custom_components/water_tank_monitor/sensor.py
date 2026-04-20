@@ -1,11 +1,11 @@
-"""Sensor platform for Tinaco Monitor.
+"""Sensor platform for Water Tank Monitor.
 
 Creates three sensor entities driven by state-change events from the configured
 distance sensor (no polling):
 
-  - TinacoPercentageSensor  — fill percentage (0–100 %)
-  - TinacoVolumeSensor       — volume in liters
-  - TinacoFillRateSensor     — fill/drain rate in L/h (rolling window)
+  - WaterTankPercentageSensor — fill percentage (0–100 %)
+  - WaterTankVolumeSensor      — volume in liters
+  - WaterTankFillRateSensor    — fill/drain rate in L/h (rolling window)
 """
 from __future__ import annotations
 
@@ -41,17 +41,17 @@ async def async_setup_entry(
     config: dict[str, Any] = {**entry.data, **entry.options}
     async_add_entities(
         [
-            TinacoPercentageSensor(hass, entry, config),
-            TinacoVolumeSensor(hass, entry, config),
-            TinacoFillRateSensor(hass, entry, config),
+            WaterTankPercentageSensor(hass, entry, config),
+            WaterTankVolumeSensor(hass, entry, config),
+            WaterTankFillRateSensor(hass, entry, config),
         ]
     )
 
 
-# ─── Shared base ────────────────────────────────────────────────────────────
+# ─── Shared base ─────────────────────────────────────────────────────────────
 
 
-class _TinacoBaseSensor(SensorEntity):
+class _WaterTankBaseSensor(SensorEntity):
     """Base class: listens to a distance entity and computes derived values."""
 
     _attr_has_entity_name = True
@@ -73,15 +73,11 @@ class _TinacoBaseSensor(SensorEntity):
 
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Tinaco Monitor",
+            "name": "Water Tank Monitor",
             "manufacturer": "royeiror",
             "model": "Water Tank Monitor",
             "configuration_url": "https://github.com/royeiror/tinaco-monitor",
         }
-
-    # ------------------------------------------------------------------
-    # HA lifecycle
-    # ------------------------------------------------------------------
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to distance sensor state changes."""
@@ -92,14 +88,9 @@ class _TinacoBaseSensor(SensorEntity):
                 self._on_distance_change,
             )
         )
-        # Initialise from whatever the sensor already reports.
         state = self._hass.states.get(self._distance_entity)
         if state and state.state not in ("unknown", "unavailable"):
             self._process(state.state)
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
 
     @callback
     def _on_distance_change(self, event: Event) -> None:
@@ -122,14 +113,13 @@ class _TinacoBaseSensor(SensorEntity):
         return max(0.0, min(100.0, pct))
 
     def _process(self, dist_str: str) -> None:
-        """Subclasses override this to update their native value."""
         raise NotImplementedError
 
 
-# ─── Concrete sensors ────────────────────────────────────────────────────────
+# ─── Concrete sensors ─────────────────────────────────────────────────────────
 
 
-class TinacoPercentageSensor(_TinacoBaseSensor):
+class WaterTankPercentageSensor(_WaterTankBaseSensor):
     """Fill percentage — 0 % (empty) → 100 % (full)."""
 
     _attr_native_unit_of_measurement = "%"
@@ -139,14 +129,14 @@ class TinacoPercentageSensor(_TinacoBaseSensor):
     def __init__(self, hass, entry, config):
         super().__init__(hass, entry, config)
         self._attr_unique_id = f"{entry.entry_id}_percentage"
-        self._attr_name = "Porcentaje de Llenado"
+        self._attr_name = "Fill Percentage"
 
     def _process(self, dist_str: str) -> None:
         pct = self._percentage(dist_str)
         self._attr_native_value = round(pct, 1) if pct is not None else None
 
 
-class TinacoVolumeSensor(_TinacoBaseSensor):
+class WaterTankVolumeSensor(_WaterTankBaseSensor):
     """Current water volume in liters."""
 
     _attr_native_unit_of_measurement = "L"
@@ -156,7 +146,7 @@ class TinacoVolumeSensor(_TinacoBaseSensor):
     def __init__(self, hass, entry, config):
         super().__init__(hass, entry, config)
         self._attr_unique_id = f"{entry.entry_id}_volume"
-        self._attr_name = "Volumen de Agua"
+        self._attr_name = "Water Volume"
 
     def _process(self, dist_str: str) -> None:
         pct = self._percentage(dist_str)
@@ -166,7 +156,7 @@ class TinacoVolumeSensor(_TinacoBaseSensor):
             self._attr_native_value = round(pct / 100.0 * self._capacity, 1)
 
 
-class TinacoFillRateSensor(_TinacoBaseSensor):
+class WaterTankFillRateSensor(_WaterTankBaseSensor):
     """Rolling fill/drain rate in L/h.
 
     Positive → filling, negative → draining, ~0 → static.
@@ -180,8 +170,7 @@ class TinacoFillRateSensor(_TinacoBaseSensor):
     def __init__(self, hass, entry, config):
         super().__init__(hass, entry, config)
         self._attr_unique_id = f"{entry.entry_id}_fill_rate"
-        self._attr_name = "Tasa de Llenado"
-        # deque of (datetime, volume_liters)
+        self._attr_name = "Fill Rate"
         self._readings: deque[tuple[datetime, float]] = deque(maxlen=FILL_RATE_WINDOW)
 
     def _process(self, dist_str: str) -> None:

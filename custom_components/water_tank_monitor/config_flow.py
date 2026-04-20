@@ -1,4 +1,4 @@
-"""Config flow for Tinaco Monitor."""
+"""Config flow for Water Tank Monitor."""
 from __future__ import annotations
 
 import voluptuous as vol
@@ -105,7 +105,7 @@ def _validate(user_input: dict) -> str | None:
     return None
 
 
-class TinacoMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class WaterTankMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the initial setup config flow."""
 
     VERSION = 1
@@ -124,7 +124,7 @@ class TinacoMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(f"{DOMAIN}_{sensor_id}")
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
-                    title=f"Tinaco Monitor ({sensor_id})",
+                    title=f"Water Tank Monitor ({sensor_id})",
                     data=user_input,
                 )
 
@@ -138,11 +138,11 @@ class TinacoMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> "TinacoMonitorOptionsFlow":
-        return TinacoMonitorOptionsFlow()
+    ) -> "WaterTankMonitorOptionsFlow":
+        return WaterTankMonitorOptionsFlow()
 
 
-class TinacoMonitorOptionsFlow(config_entries.OptionsFlow):
+class WaterTankMonitorOptionsFlow(config_entries.OptionsFlow):
     """Allow reconfiguring parameters without reinstalling."""
 
     async def async_step_init(

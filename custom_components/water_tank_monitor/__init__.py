@@ -1,4 +1,4 @@
-"""Tinaco Monitor — Home Assistant custom integration.
+"""Water Tank Monitor — Home Assistant custom integration.
 
 Provides derived sensors (fill %, volume, fill rate) and binary alert sensors
 from any numeric distance sensor (e.g. ESPHome ultrasonic).
@@ -18,7 +18,7 @@ PLATFORMS: list[str] = ["sensor", "binary_sensor"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Tinaco Monitor from a config entry."""
+    """Set up Water Tank Monitor from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {**entry.data, **entry.options}
 
