@@ -68,7 +68,7 @@ Copy the `custom_components/water_tank_monitor/` folder into your HA `config/cus
 1. **Settings → Automations & Scenes → Blueprints → Import Blueprint**
 2. Paste this URL:
    ```
-   https://raw.githubusercontent.com/royeiror/tinaco-monitor/main/blueprints/automation/tinaco_monitor/tank_alerts.yaml
+   https://raw.githubusercontent.com/royeiror/water-tank-monitor/main/blueprints/automation/water_tank_monitor/tank_alerts.yaml
    ```
 3. Create the automation, select your mobile device and the six sensor entities.
 

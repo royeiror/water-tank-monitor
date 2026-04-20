@@ -5,7 +5,7 @@ blueprint:
     sidebar notifications when the water tank level drops below configured
     thresholds, or when it becomes full.
   domain: automation
-  source_url: https://github.com/royeiror/water-tank-monitor/blob/main/blueprints/automation/tinaco_monitor/tank_alerts.yaml
+  source_url: https://github.com/royeiror/water-tank-monitor/blob/main/blueprints/automation/water_tank_monitor/tank_alerts.yaml
 
   input:
     notify_device:
