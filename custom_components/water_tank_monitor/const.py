@@ -34,6 +34,7 @@ ATTR_VOLUME = "volume"
 # Signal names
 SIGNAL_RESET_BOUNDS = "water_tank_monitor_reset_bounds"
 SIGNAL_CALIBRATION_UPDATE = "water_tank_monitor_calibration_update"
+SIGNAL_ANALYTICS_UPDATE = "water_tank_monitor_analytics_update"
 
 # Analytics Defaults
 DEFAULT_DETECTION_THRESHOLD = 20.0  # L/h

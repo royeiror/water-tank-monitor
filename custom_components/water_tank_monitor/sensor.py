@@ -33,6 +33,7 @@ from .const import (
     DOMAIN,
     FILL_RATE_WINDOW,
     SIGNAL_RESET_BOUNDS,
+    SIGNAL_ANALYTICS_UPDATE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -69,7 +70,6 @@ class _WaterTankBaseSensor(SensorEntity):
 
     _attr_has_entity_name = True
     _attr_should_poll = False
-    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(
         self,
@@ -127,7 +127,8 @@ class _WaterTankBaseSensor(SensorEntity):
         return max(0.0, min(100.0, pct))
 
     def _process(self, dist_str: str) -> None:
-        raise NotImplementedError
+        """Override in subclasses to process raw distance."""
+        pass
 
 
 # ─── Concrete sensors ─────────────────────────────────────────────────────────
@@ -139,6 +140,7 @@ class WaterTankPercentageSensor(_WaterTankBaseSensor):
     _attr_native_unit_of_measurement = "%"
     _attr_icon = "mdi:water-percent"
     _attr_suggested_display_precision = 1
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, hass, entry, config):
         super().__init__(hass, entry, config)
@@ -156,6 +158,7 @@ class WaterTankVolumeSensor(_WaterTankBaseSensor):
     _attr_native_unit_of_measurement = "L"
     _attr_icon = "mdi:water"
     _attr_suggested_display_precision = 0
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, hass, entry, config, analytics):
         super().__init__(hass, entry, config)
@@ -181,6 +184,7 @@ class WaterTankFillRateSensor(_WaterTankBaseSensor):
     _attr_native_unit_of_measurement = "L/h"
     _attr_icon = "mdi:waves-arrow-up"
     _attr_suggested_display_precision = 1
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, hass, entry, config, analytics):
         super().__init__(hass, entry, config)
@@ -222,6 +226,7 @@ class WaterTankLowestDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
     _attr_icon = "mdi:arrow-collapse-down"
     _attr_native_unit_of_measurement = "m"
     _attr_suggested_display_precision = 3
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, hass, entry, config):
         super().__init__(hass, entry, config)
@@ -264,6 +269,7 @@ class WaterTankHighestDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
     _attr_icon = "mdi:arrow-expand-up"
     _attr_native_unit_of_measurement = "m"
     _attr_suggested_display_precision = 3
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, hass, entry, config):
         super().__init__(hass, entry, config)
@@ -313,6 +319,17 @@ class WaterTankDailySupplySensor(_WaterTankBaseSensor):
         self._attr_unique_id = f"{entry.entry_id}_daily_supply"
         self._attr_name = "Daily Water Received"
 
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to analytics updates."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self._hass,
+                f"{SIGNAL_ANALYTICS_UPDATE}_{self._entry.entry_id}",
+                self.async_write_ha_state,
+            )
+        )
+
     @property
     def native_value(self) -> float:
         return round(self._analytics.daily_supply_total, 1)
@@ -327,12 +344,24 @@ class WaterTankConsumptionEventSensor(_WaterTankBaseSensor):
 
     _attr_icon = "mdi:water-minus"
     _attr_native_unit_of_measurement = "L"
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, hass, entry, config, analytics):
         super().__init__(hass, entry, config)
         self._analytics = analytics
         self._attr_unique_id = f"{entry.entry_id}_last_consumption"
         self._attr_name = "Last Usage Event"
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to analytics updates."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self._hass,
+                f"{SIGNAL_ANALYTICS_UPDATE}_{self._entry.entry_id}",
+                self.async_write_ha_state,
+            )
+        )
 
     @property
     def native_value(self) -> float | None:
@@ -354,6 +383,17 @@ class WaterTankTypicalSupplySensor(_WaterTankBaseSensor):
         self._analytics = analytics
         self._attr_unique_id = f"{entry.entry_id}_typical_supply"
         self._attr_name = "Typical Supply Windows"
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to analytics updates."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self._hass,
+                f"{SIGNAL_ANALYTICS_UPDATE}_{self._entry.entry_id}",
+                self.async_write_ha_state,
+            )
+        )
 
     @property
     def native_value(self) -> str | None:

@@ -23,6 +23,7 @@ from .const import (
     DRAIN_CAT_SHOWER,
     EVENT_TYPE_DRAIN,
     EVENT_TYPE_SUPPLY,
+    SIGNAL_ANALYTICS_UPDATE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -126,6 +127,8 @@ class WaterTankAnalytics:
 
         self.last_volume = volume
         self.last_update = now
+        
+        async_dispatcher_send(self.hass, f"{SIGNAL_ANALYTICS_UPDATE}_{self.entry.entry_id}")
 
     def _categorize_drain(self, amount: float, duration_sec: float) -> str:
         """Heuristic for consumption disaggregation."""

@@ -17,6 +17,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
@@ -28,6 +29,7 @@ from .const import (
     CONF_MIN_DISTANCE,
     DOMAIN,
     FULL_THRESHOLD,
+    SIGNAL_ANALYTICS_UPDATE,
 )
 from .analytics import WaterTankAnalytics
 
@@ -112,7 +114,8 @@ class _WaterTankAlertBase(BinarySensorEntity):
         return max(0.0, min(100.0, (self._d_max - dist) / span * 100.0))
 
     def _evaluate(self, dist_str: str) -> None:
-        raise NotImplementedError
+        """Override in subclasses to evaluate binary state."""
+        pass
 
 
 # ─── Concrete binary sensors ──────────────────────────────────────────────────
@@ -163,10 +166,6 @@ class WaterTankFullSensor(_WaterTankAlertBase):
         self._attr_unique_id = f"{entry.entry_id}_tank_full"
         self._attr_name = "Tank Full"
 
-        pct = self._percentage(dist_str)
-        if pct is not None:
-            self._attr_is_on = pct >= FULL_THRESHOLD
-
 
 class WaterTankSupplyActiveSensor(BinarySensorEntity):
     """Reflects whether water is currently flowing into the tank."""
@@ -190,10 +189,11 @@ class WaterTankSupplyActiveSensor(BinarySensorEntity):
         return self._analytics.is_filling
 
     async def async_added_to_hass(self) -> None:
-        """Subscribe to dispatcher or just exist."""
-        # In a real integration we'd push updates, 
-        # but here the sensor feeds the analytics and we write state there.
-        # Actually, let's just make it poll-less and have the analytics 
-        # trigger a signal. To keep it simple for now, we'll let 
-        # other sensors triggering write_ha_state handle it or add a listener.
-        pass
+        """Subscribe to analytics updates."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self._hass,
+                f"{SIGNAL_ANALYTICS_UPDATE}_{self._entry.entry_id}",
+                self.async_write_ha_state,
+            )
+        )
