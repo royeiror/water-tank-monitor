@@ -65,6 +65,7 @@ class WaterTankAnalytics:
         # Results
         self.last_supply_stats = {}
         self.daily_supply_total = 0.0
+        self.daily_consumption_total = 0.0
         self.typical_supply_times: list[time] = []
 
     def update_settings(self, config: dict[str, Any]) -> None:
@@ -93,6 +94,16 @@ class WaterTankAnalytics:
             self.smoothed_volume = round(median(recent_vols), 2)
         else:
             self.smoothed_volume = volume
+
+        # ─── Consumption Tracking ───────────────────────────────────────────
+        if not self.is_filling and self.last_volume is not None:
+            delta = volume - self.last_volume
+            if delta < 0:
+                # Accumulate the drop. We limit it to -2000 L/h to ignore sensor resets/errors
+                # but allow standard high-flow usage.
+                rate = abs(delta) / ((now - self.last_update).total_seconds() / 3600.0) if self.last_update else 0
+                if rate < 2000:
+                    self.daily_consumption_total += abs(delta)
 
         # ─── Temporal Supply Detection ──────────────────────────────────────
         self._check_supply(now)
@@ -198,3 +209,4 @@ class WaterTankAnalytics:
     def reset_daily_stats(self) -> None:
         """Reset counters at midnight."""
         self.daily_supply_total = 0.0
+        self.daily_consumption_total = 0.0

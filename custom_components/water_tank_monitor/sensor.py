@@ -16,6 +16,7 @@ from typing import Any
 
 from homeassistant.components.sensor import (
     RestoreSensor,
+    SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
 )
@@ -68,6 +69,7 @@ async def async_setup_entry(
             WaterTankFillRateSensor(hass, entry, config, analytics),
             WaterTankRawDistanceSensor(hass, entry, config),
             WaterTankDailySupplySensor(hass, entry, config, analytics),
+            WaterTankDailyConsumptionSensor(hass, entry, config, analytics),
             WaterTankTypicalSupplySensor(hass, entry, config, analytics),
         ]
     )
@@ -189,6 +191,7 @@ class WaterTankVolumeSensor(_WaterTankBaseSensor):
     """Current water volume in liters."""
 
     _attr_native_unit_of_measurement = "L"
+    _attr_device_class = SensorDeviceClass.WATER
     _attr_icon = "mdi:water"
     _attr_suggested_display_precision = 0
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -343,6 +346,7 @@ class WaterTankDailySupplySensor(_WaterTankBaseSensor):
 
     _attr_icon = "mdi:tray-arrow-down"
     _attr_native_unit_of_measurement = "L"
+    _attr_device_class = SensorDeviceClass.WATER
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     def __init__(self, hass, entry, config, analytics):
@@ -369,6 +373,36 @@ class WaterTankDailySupplySensor(_WaterTankBaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return self._analytics.last_supply_stats
+
+
+class WaterTankDailyConsumptionSensor(_WaterTankBaseSensor):
+    """Tracks total water consumed today. Compatible with Energy Dashboard."""
+
+    _attr_icon = "mdi:water-minus"
+    _attr_native_unit_of_measurement = "L"
+    _attr_device_class = SensorDeviceClass.WATER
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    def __init__(self, hass, entry, config, analytics):
+        super().__init__(hass, entry, config)
+        self._analytics = analytics
+        self._attr_unique_id = f"{entry.entry_id}_daily_consumption"
+        self._attr_name = "Daily Water Consumed"
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to analytics updates."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self._hass,
+                f"{SIGNAL_ANALYTICS_UPDATE}_{self._entry.entry_id}",
+                self.async_write_ha_state,
+            )
+        )
+
+    @property
+    def native_value(self) -> float:
+        return round(self._analytics.daily_consumption_total, 1)
 
 
 class WaterTankStatusSensor(_WaterTankBaseSensor):
