@@ -175,13 +175,26 @@ class WaterTankPercentageSensor(_WaterTankBaseSensor):
     @callback
     def _on_analytics_update(self) -> None:
         """Update value from analytics when smoothed volume changes."""
-        vol = self._analytics.smoothed_volume
-        if vol is None:
+        if self._analytics.is_filling or self._analytics.is_stabilizing:
             self._attr_native_value = None
         else:
-            pct = (vol / self._capacity) * 100.0 if self._capacity > 0 else 0
-            self._attr_native_value = round(max(0.0, min(100.0, pct)), 1)
+            vol = self._analytics.smoothed_volume
+            if vol is None:
+                self._attr_native_value = None
+            else:
+                pct = (vol / self._capacity) * 100.0 if self._capacity > 0 else 0
+                self._attr_native_value = round(max(0.0, min(100.0, pct)), 1)
         self.async_write_ha_state()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return status attributes."""
+        status = "normal"
+        if self._analytics.is_filling:
+            status = "filling (data paused due to turbulence)"
+        elif self._analytics.is_stabilizing:
+            status = "stabilizing (waiting for surface to calm)"
+        return {"status": status}
 
     def _process(self, dist_str: str) -> None:
         pass
@@ -216,8 +229,21 @@ class WaterTankVolumeSensor(_WaterTankBaseSensor):
     @callback
     def _on_analytics_update(self) -> None:
         """Update value from analytics when smoothed volume changes."""
-        self._attr_native_value = self._analytics.smoothed_volume
+        if self._analytics.is_filling or self._analytics.is_stabilizing:
+            self._attr_native_value = None
+        else:
+            self._attr_native_value = self._analytics.smoothed_volume
         self.async_write_ha_state()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return status attributes."""
+        status = "normal"
+        if self._analytics.is_filling:
+            status = "filling (data paused due to turbulence)"
+        elif self._analytics.is_stabilizing:
+            status = "stabilizing (waiting for surface to calm)"
+        return {"status": status}
 
     def _process(self, dist_str: str) -> None:
         pass
@@ -333,12 +359,29 @@ class WaterTankRawDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
         except (ValueError, TypeError):
             return
 
-        self._attr_native_value = val
+        if self._analytics.is_filling or self._analytics.is_stabilizing:
+            self._attr_native_value = None
+        else:
+            self._attr_native_value = val
 
         if self._lowest_seen is None or val < self._lowest_seen:
             self._lowest_seen = val
         if self._highest_seen is None or val > self._highest_seen:
             self._highest_seen = val
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        status = "normal"
+        if self._analytics.is_filling:
+            status = "filling (data paused due to turbulence)"
+        elif self._analytics.is_stabilizing:
+            status = "stabilizing (waiting for surface to calm)"
+            
+        return {
+            "lowest_seen": self._lowest_seen,
+            "highest_seen": self._highest_seen,
+            "status": status,
+        }
 
 
 class WaterTankDailySupplySensor(_WaterTankBaseSensor):

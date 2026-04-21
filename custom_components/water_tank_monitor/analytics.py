@@ -30,10 +30,11 @@ _LOGGER = logging.getLogger(__name__)
 
 # Constants for detection
 SUPPLY_CONFIRMATION_SEC = 60
-SUPPLY_END_TIMEOUT_SEC = 30
-LEAK_MIN_RATE = 0.5  # Ignore drops below 0.5 L/h for leak detection
-USAGE_THRESHOLD_RATE = 15.0 # drops faster than this are considered usage, not leaks
-HISTORY_MAX_LEN = 120 # approx 2-4 minutes depending on update frequency
+SUPPLY_END_TIMEOUT_SEC = 60 # Increased to handle turbulence gaps
+STABILIZATION_TIME_SEC = 60 # 1 minute stabilization window
+LEAK_MIN_RATE = 0.5  
+USAGE_THRESHOLD_RATE = 15.0 
+HISTORY_MAX_LEN = 120 
 
 
 class WaterTankAnalytics:
@@ -48,6 +49,7 @@ class WaterTankAnalytics:
         
         # State
         self.is_filling = False
+        self.is_stabilizing = False
         self.is_leaking = False
         
         self.last_volume = None
@@ -60,6 +62,7 @@ class WaterTankAnalytics:
         # Event tracking
         self.supply_start_time = None
         self.supply_start_volume = None
+        self.stabilization_start_time = None
         self.leak_start_time = None
         
         # Results
@@ -87,21 +90,27 @@ class WaterTankAnalytics:
             return
 
         # ─── Turbulence Filtering ───────────────────────────────────────────
-        # Use median of last 15 readings during supply, or last 3 otherwise
-        win_size = 15 if self.is_filling else 3
+        # Use a larger window during supply or stabilization
+        win_size = 15 if (self.is_filling or self.is_stabilizing) else 3
         if len(self.history) >= win_size:
             recent_vols = [r[1] for r in list(self.history)[-win_size:]]
             self.smoothed_volume = round(median(recent_vols), 2)
         else:
             self.smoothed_volume = volume
 
+        # ─── Stabilization Lifecycle ───────────────────────────────────────
+        if self.is_stabilizing and self.stabilization_start_time:
+            elapsed = (now - self.stabilization_start_time).total_seconds()
+            if elapsed >= STABILIZATION_TIME_SEC:
+                self.is_stabilizing = False
+                _LOGGER.info("Tank stabilization complete")
+
         # ─── Consumption Tracking ───────────────────────────────────────────
-        if not self.is_filling and self.last_volume is not None:
+        if not self.is_filling and not self.is_stabilizing and self.last_volume is not None:
             delta = volume - self.last_volume
             if delta < 0:
-                # Accumulate the drop. We limit it to -2000 L/h to ignore sensor resets/errors
-                # but allow standard high-flow usage.
                 rate = abs(delta) / ((now - self.last_update).total_seconds() / 3600.0) if self.last_update else 0
+                # Ignore extreme jumps (sensor noise)
                 if rate < 2000:
                     self.daily_consumption_total += abs(delta)
 
@@ -126,31 +135,36 @@ class WaterTankAnalytics:
                 increase = v_end - v_start
                 # Must increase by at least 2L and have positive trend
                 if increase >= 2.0:
-                    # Check if mostly monotonic
+                    # check monotonicity with relaxed jitter allowance for turbulence
                     is_monotonic = True
                     for i in range(1, len(readings_1m)):
-                        if readings_1m[i][1] < readings_1m[i-1][1] - 0.5: # allow 0.5L jitter
+                        # Relaxed threshold to 1.5L jitter
+                        if readings_1m[i][1] < readings_1m[i-1][1] - 1.5: 
                             is_monotonic = False
                             break
                     
                     if is_monotonic:
                         self.is_filling = True
+                        self.is_stabilizing = False
                         self.supply_start_time = readings_1m[0][0]
                         self.supply_start_volume = v_start
-                        _LOGGER.info("Water supply detected and confirmed (trend > 60s)")
+                        _LOGGER.info("Water supply detected and confirmed")
         else:
-            # Check if supply ended (no significant increase in last 30s)
-            readings_30s = [r for r in self.history if (now - r[0]).total_seconds() <= SUPPLY_END_TIMEOUT_SEC]
-            if len(readings_30s) > 3:
-                max_v = max(r[1] for r in readings_30s)
-                min_v = min(r[1] for r in readings_30s)
+            # Check if supply ended (no significant increase in last 60s)
+            readings_window = [r for r in self.history if (now - r[0]).total_seconds() <= SUPPLY_END_TIMEOUT_SEC]
+            if len(readings_window) > 3:
+                max_v = max(r[1] for r in readings_window)
+                min_v = min(r[1] for r in readings_window)
                 # If variance is small and no upward trend
-                if (max_v - min_v) < 1.0 or readings_30s[-1][1] <= readings_30s[0][1] + 0.2:
-                    self._end_supply(now, readings_30s[-1][1])
+                if (max_v - min_v) < 1.0 or readings_window[-1][1] <= readings_window[0][1] + 0.2:
+                    self._end_supply(now, readings_window[-1][1])
 
     def _end_supply(self, now: datetime, end_volume: float) -> None:
-        """Wrap up a supply event."""
+        """Wrap up a supply event and start stabilization."""
         self.is_filling = False
+        self.is_stabilizing = True
+        self.stabilization_start_time = now
+        
         duration = (now - self.supply_start_time).total_seconds() / 60.0
         amount = end_volume - self.supply_start_volume
         
@@ -163,40 +177,25 @@ class WaterTankAnalytics:
             }
             self.daily_supply_total += amount
             self._record_supply_time(self.supply_start_time.time())
-            _LOGGER.info("Supply event ended: %s L", round(amount, 1))
+            _LOGGER.info("Supply event ended: %s L. Entering 1-minute stabilization.", round(amount, 1))
 
     def _check_leak(self, now: datetime, fill_rate: float) -> None:
         """Detect sustained small drops, ignoring high-flow usage interruptions."""
-        
-        # 1. Leak Zone: Constant small drop
         is_in_leak_zone = -USAGE_THRESHOLD_RATE < fill_rate < -self.leak_rate_threshold
-        
-        # 2. Usage Zone: High-flow consumption
         is_usage = fill_rate <= -USAGE_THRESHOLD_RATE
-        
-        # 3. Stable/Filling Zone: No significant drop or active supply
-        is_stable_or_filling = fill_rate >= -self.leak_rate_threshold or self.is_filling
+        is_stable_or_filling = fill_rate >= -self.leak_rate_threshold or self.is_filling or self.is_stabilizing
 
         if is_in_leak_zone:
-            # Start or continue the timer
             if self.leak_start_time is None:
                 self.leak_start_time = now
-            
             elapsed = (now - self.leak_start_time).total_seconds() / 60.0
             if elapsed >= self.leak_duration_min:
                 if not self.is_leaking:
                     self.is_leaking = True
-                    _LOGGER.warning("Potential leak detected! Sustained drop of %s L/h", round(abs(fill_rate), 1))
-        
+                    _LOGGER.warning("Potential leak detected!")
         elif is_usage:
-            # Suspension logic: 
-            # If we were already timing a leak, we keep the leak_start_time as is.
-            # We don't advance the detection but we don't punish the timer for a flush.
-            # We effectively "pause" by just doing nothing.
             pass
-            
         elif is_stable_or_filling:
-            # Genuine reset condition: tank stopped dropping or is being filled
             self.leak_start_time = None
             self.is_leaking = False
 
