@@ -69,7 +69,13 @@ class WaterTankAnalytics:
         self.last_supply_stats = {}
         self.daily_supply_total = 0.0
         self.daily_consumption_total = 0.0
+        self.initial_volume_today = None
         self.typical_supply_times: list[time] = []
+        
+        # New: Irregularity tracking
+        self.is_irregular = False
+        self.irregularity_history: deque[bool] = deque(maxlen=10)
+        self.supply_windows_history: list[dict[str, Any]] = []
 
     def update_settings(self, config: dict[str, Any]) -> None:
         """Update thresholds from config."""
@@ -87,9 +93,20 @@ class WaterTankAnalytics:
             self.last_volume = volume
             self.smoothed_volume = volume
             self.last_update = now
+            if self.initial_volume_today is None:
+                self.initial_volume_today = volume
             return
 
-        # ─── Turbulence Filtering ───────────────────────────────────────────
+        # ─── Turbulence Filtering & Irregularity Detection ──────────────────
+        # Calculate irregularity (variance in the last 10 readings)
+        if len(self.history) >= 10:
+            vols = [r[1] for r in list(self.history)[-10:]]
+            avg = sum(vols) / len(vols)
+            var = sum((x - avg) ** 2 for x in vols) / len(vols)
+            # A variance > 0.05 in volume usually means the surface is moving
+            self.is_irregular = var > 0.05 
+            self.irregularity_history.append(self.is_irregular)
+        
         # Use a larger window during supply or stabilization
         win_size = 15 if (self.is_filling or self.is_stabilizing) else 3
         if len(self.history) >= win_size:
@@ -105,14 +122,13 @@ class WaterTankAnalytics:
                 self.is_stabilizing = False
                 _LOGGER.info("Tank stabilization complete")
 
-        # ─── Consumption Tracking ───────────────────────────────────────────
-        if not self.is_filling and not self.is_stabilizing and self.last_volume is not None:
-            delta = volume - self.last_volume
-            if delta < 0:
-                rate = abs(delta) / ((now - self.last_update).total_seconds() / 3600.0) if self.last_update else 0
-                # Ignore extreme jumps (sensor noise)
-                if rate < 2000:
-                    self.daily_consumption_total += abs(delta)
+        # ─── Consumption Tracking (Balance-based) ───────────────────────────
+        # Consumption = (Initial Volume + Total Received) - Current Volume
+        if self.initial_volume_today is not None:
+            raw_consumption = (self.initial_volume_today + self.daily_supply_total) - self.smoothed_volume
+            # We use max with current value to ensure it's TOTAL_INCREASING 
+            # and doesn't dip due to minor smoothed volume noise
+            self.daily_consumption_total = max(self.daily_consumption_total, round(max(0.0, raw_consumption), 1))
 
         # ─── Temporal Supply Detection ──────────────────────────────────────
         self._check_supply(now)
@@ -125,30 +141,31 @@ class WaterTankAnalytics:
         async_dispatcher_send(self.hass, f"{SIGNAL_ANALYTICS_UPDATE}_{self.entry.entry_id}")
 
     def _check_supply(self, now: datetime) -> None:
-        """Verify supply with temporal confirmation."""
+        """Verify supply using irregularity and volume trend."""
+        # Is the tank currently considered "full"? (Using 95% threshold)
+        is_not_full = True
+        if self.smoothed_volume is not None:
+            capacity = self.entry.options.get(CONF_TANK_CAPACITY, 700.0)
+            if self.smoothed_volume >= (capacity * 0.95):
+                is_not_full = False
+
         if not self.is_filling:
-            # Check for constant increase over 60s
-            readings_1m = [r for r in self.history if (now - r[0]).total_seconds() <= SUPPLY_CONFIRMATION_SEC]
-            if len(readings_1m) > 5:
-                v_start = readings_1m[0][1]
-                v_end = readings_1m[-1][1]
-                increase = v_end - v_start
-                # Must increase by at least 2L and have positive trend
-                if increase >= 2.0:
-                    # check monotonicity with relaxed jitter allowance for turbulence
-                    is_monotonic = True
-                    for i in range(1, len(readings_1m)):
-                        # Relaxed threshold to 1.5L jitter
-                        if readings_1m[i][1] < readings_1m[i-1][1] - 1.5: 
-                            is_monotonic = False
-                            break
-                    
-                    if is_monotonic:
+            # Trigger: Irregular readings AND not full AND some upward trend in smoothed volume
+            # We look for sustained irregularity (at least 7 of last 10 readings)
+            sustained_irregular = list(self.irregularity_history).count(True) >= 7
+            
+            if sustained_irregular and is_not_full:
+                readings_1m = [r for r in self.history if (now - r[0]).total_seconds() <= SUPPLY_CONFIRMATION_SEC]
+                if len(readings_1m) > 5:
+                    v_start = readings_1m[0][1]
+                    v_end = readings_1m[-1][1]
+                    # Even with turbulence, smoothed volume should show an upward trend over 1 min
+                    if v_end > v_start + 1.0:
                         self.is_filling = True
                         self.is_stabilizing = False
-                        self.supply_start_time = readings_1m[0][0]
-                        self.supply_start_volume = v_start
-                        _LOGGER.info("Water supply detected and confirmed")
+                        self.supply_start_time = now
+                        self.supply_start_volume = self.smoothed_volume
+                        _LOGGER.info("Water supply detected (irregularity + trend)")
         else:
             # Check if supply ended (no significant increase in last 60s)
             readings_window = [r for r in self.history if (now - r[0]).total_seconds() <= SUPPLY_END_TIMEOUT_SEC]
@@ -168,7 +185,7 @@ class WaterTankAnalytics:
         duration = (now - self.supply_start_time).total_seconds() / 60.0
         amount = end_volume - self.supply_start_volume
         
-        if amount > 5.0:
+        if amount > 2.0:
             self.last_supply_stats = {
                 "start": self.supply_start_time.isoformat(),
                 "end": now.isoformat(),
@@ -176,6 +193,16 @@ class WaterTankAnalytics:
                 "duration_min": round(duration, 1),
             }
             self.daily_supply_total += amount
+            
+            # Record window
+            self.supply_windows_history.append({
+                "start": self.supply_start_time.strftime("%H:%M"),
+                "end": now.strftime("%H:%M"),
+                "type": "Supply Event"
+            })
+            if len(self.supply_windows_history) > 10:
+                self.supply_windows_history.pop(0)
+
             self._record_supply_time(self.supply_start_time.time())
             _LOGGER.info("Supply event ended: %s L. Entering 1-minute stabilization.", round(amount, 1))
 
@@ -209,3 +236,4 @@ class WaterTankAnalytics:
         """Reset counters at midnight."""
         self.daily_supply_total = 0.0
         self.daily_consumption_total = 0.0
+        self.initial_volume_today = self.smoothed_volume

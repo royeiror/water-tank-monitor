@@ -81,7 +81,7 @@ class WaterTankLeakSensor(BinarySensorEntity):
 
     _attr_has_entity_name = True
     _attr_should_poll = False
-    _attr_device_class = BinarySensorDeviceClass.MOISTURE
+    _attr_translation_key = "leak_detected"
     _attr_icon = "mdi:water-leak"
 
     def __init__(self, hass, entry, config, analytics):

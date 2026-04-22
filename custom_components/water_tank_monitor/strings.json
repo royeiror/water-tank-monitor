@@ -57,6 +57,14 @@
           "normal": "Normal"
         }
       }
+    },
+    "binary_sensor": {
+      "leak_detected": {
+        "state": {
+          "off": "Nominal",
+          "on": "Leak Detected"
+        }
+      }
     }
   }
 }

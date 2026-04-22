@@ -67,7 +67,7 @@ async def async_setup_entry(
             WaterTankPercentageSensor(hass, entry, config, analytics),
             WaterTankVolumeSensor(hass, entry, config, analytics),
             WaterTankFillRateSensor(hass, entry, config, analytics),
-            WaterTankRawDistanceSensor(hass, entry, config),
+            WaterTankRawDistanceSensor(hass, entry, config, analytics),
             WaterTankDailySupplySensor(hass, entry, config, analytics),
             WaterTankDailyConsumptionSensor(hass, entry, config, analytics),
             WaterTankTypicalSupplySensor(hass, entry, config, analytics),
@@ -315,8 +315,9 @@ class WaterTankRawDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
     _attr_suggested_display_precision = 3
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, hass, entry, config):
+    def __init__(self, hass, entry, config, analytics):
         super().__init__(hass, entry, config)
+        self._analytics = analytics
         self._attr_unique_id = f"{entry.entry_id}_raw_distance"
         self._attr_name = "Raw Distance"
         self._attr_native_value = None
@@ -359,10 +360,8 @@ class WaterTankRawDistanceSensor(_WaterTankBaseSensor, RestoreSensor):
         except (ValueError, TypeError):
             return
 
-        if self._analytics.is_filling or self._analytics.is_stabilizing:
-            self._attr_native_value = None
-        else:
-            self._attr_native_value = val
+        # Always show raw distance
+        self._attr_native_value = val
 
         if self._lowest_seen is None or val < self._lowest_seen:
             self._lowest_seen = val
@@ -519,15 +518,16 @@ class WaterTankTypicalSupplySensor(_WaterTankBaseSensor):
 
     @property
     def native_value(self) -> str | None:
-        if not self._analytics.typical_supply_times:
+        if not self._analytics.supply_windows_history:
             return "Discovery in progress..."
         
-        # Sort and group times (simplified: just show them)
-        times = sorted(self._analytics.typical_supply_times)
-        return ", ".join([t.strftime("%H:%M") for t in times[:3]]) + ("..." if len(times) > 3 else "")
+        # Show latest window
+        last = self._analytics.supply_windows_history[-1]
+        return f"{last['start']} - {last['end']}"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {
+            "recent_windows": self._analytics.supply_windows_history,
             "all_recorded_times": [t.isoformat() for t in self._analytics.typical_supply_times]
         }
